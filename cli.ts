@@ -6,6 +6,7 @@ export interface CliResult {
   markdownPath: string;
   options: ConvertMarkdownOptions;
   watch: boolean;
+  mode: "convert" | "report";
 }
 
 /** Minimal key=value / --flag parser for custom options */
@@ -14,8 +15,21 @@ export function parseCliArgs(argv: string[]): CliResult {
     printUsage(0);
   }
 
-  const markdownPath = argv[0]!;
-  const raw = argv.slice(1);
+  // 检测子命令
+  let mode: "convert" | "report" = "convert";
+  let args = argv;
+
+  if (argv[0] === "report") {
+    mode = "report";
+    args = argv.slice(1);
+  }
+
+  if (args.length === 0) {
+    printUsage(0);
+  }
+
+  const markdownPath = args[0]!;
+  const raw = args.slice(1);
 
   const opts: Record<string, string | boolean> = {};
   for (let i = 0; i < raw.length; i++) {
@@ -63,5 +77,5 @@ export function parseCliArgs(argv: string[]): CliResult {
     mermaid,
   };
 
-  return { markdownPath, options, watch };
+  return { markdownPath, options, watch, mode };
 }

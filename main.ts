@@ -1,6 +1,7 @@
 // main.ts — CLI entry
 import * as process from "node:process";
 import { convertMarkdown } from "./core.js";
+import { generateReport } from "./report.js";
 import { parseCliArgs } from "./cli.js";
 import { watchMode } from "./utils.js";
 import { closeRenderer } from "./mermaid.js";
@@ -12,7 +13,16 @@ async function run(markdownPath: string, options: any) {
 }
 
 async function main() {
-  const { markdownPath, options, watch } = parseCliArgs(process.argv.slice(2));
+  const { markdownPath, options, watch, mode } = parseCliArgs(process.argv.slice(2));
+
+  if (mode === "report") {
+    await generateReport(markdownPath, {
+      theme: options.theme,
+      primaryColor: options.primaryColor,
+      title: options.title,
+    });
+    return;
+  }
 
   if (watch) {
     watchMode(markdownPath, (p: string) => run(p, options));

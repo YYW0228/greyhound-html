@@ -67,6 +67,10 @@ greyhound-html — Convert Markdown to styled HTML
 
 Usage:
   greyhound-html <input.md> [options]
+  greyhound-html report <input.md> [options]
+
+Commands:
+  report                Generate structured analysis report with cards, folding, color coding
 
 Options:
   --title <str>           Override document title

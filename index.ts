@@ -12,6 +12,8 @@ export { parseFrontmatter, stripWrappingQuotes } from "./frontmatter.js";
 export { renderMarkdownDocument } from "./renderer.js";
 export { replaceMarkdownImagesWithPlaceholders, resolveContentImages } from "./images.js";
 export { preprocessMermaidInMarkdown, renderMermaidToPng, closeRenderer } from "./mermaid.js";
+export { generateReport } from "./report.js";
+export type { ReportOptions } from "./report.js";
 export { extractTitleFromMarkdown, extractSummaryFromBody } from "./content-utils.js";
 export {
   DEFAULT_THEME, DEFAULT_CODE_THEME, DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE,

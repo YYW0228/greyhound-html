@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLMs 101 — 分析报告</title>
+<style>
+body{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Noto Sans, Helvetica, Arial, sans-serif;max-width:960px;margin:0 auto;padding:24px;background:#f7fafc;color:#1a202c;line-height:1.7}
+h1{font-size:2em;margin-bottom:4px;color:#1a202c}
+h2{font-size:1.4em;margin:24px 0 12px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+.subtitle{color:#718096;font-size:.95em;margin-bottom:24px}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:16px 0}
+.card{padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 1px 3px #00000014;margin:12px 0}
+.card-label{font-size:.8em;color:#718096;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.card-value{font-size:1.6em;font-weight:700;margin:2px 0}
+.card-desc{font-size:.9em;color:#4a5568}
+.critical,.warning,.info,.success,.pending{padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 1px 3px #00000014;margin:12px 0}
+.critical{border-left:4px solid #e53e3e;background:#fff5f5}
+.warning{border-left:4px solid #dd6b20;background:#fffaf0}
+.info{border-left:4px solid #3182ce;background:#ebf8ff}
+.success{border-left:4px solid #38a169;background:#f0fff4}
+.pending{border-left:4px solid #d69e2e;background:#fffff0}
+details{margin:8px 0}
+details .critical,details .warning,details .info,details .success,details .pending{margin:8px 0}
+summary{font-weight:600;cursor:pointer;padding:10px 0;font-size:1.05em;user-select:none}
+summary:hover{color:#0969da}
+.tag{display:inline-block;padding:2px 10px;border-radius:4px;font-size:.8em;font-weight:600;margin:2px}
+.tag-blue{background:#bee3f8;color:#2b6cb0}
+.tag-green{background:#c6f6d5;color:#276749}
+.tag-purple{background:#e9d8fd;color:#6b46c1}
+.tag-list{margin:12px 0;line-height:2.2}
+code{background:#edf2f7;padding:2px 6px;border-radius:4px;font-family:'SF Mono','Fira Code',monospace;font-size:.9em}
+pre{background:#1a202c;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto;font-size:.85em;line-height:1.5}
+pre code{background:transparent;color:inherit}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.9em}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0}
+th{background:#f7fafc;font-weight:600;color:#4a5568}
+blockquote{border-left:3px solid #0969da;margin:12px 0;padding:8px 16px;background:#ebf8ff;border-radius:0 8px 8px 0;font-style:italic;color:#2d3748}
+p{margin:1em 0}
+ul,ol{padding-left:2em;margin:.8em 0}
+li{margin:.3em 0}
+@media(max-width:600px){.grid-4{grid-template-columns:1fr}body{padding:16px}}
+</style>
+</head>
+<body>
+
+<h1>📊 LLMs 101</h1>
+<div class="subtitle">
+  基于 greyhound-html report 模式 · 2026/6/14 02:00:36
+  <span class="tag tag-blue">72 章节</span>
+  <span class="tag tag-purple">~32,664 tokens</span>
+  <span class="tag tag-green">0 代码块</span>
+</div>
+
+
+<h2>📊 内容概览</h2>
+<div class="grid-4">
+  <div class="card"><div class="card-label">章节</div><div class="card-value" style="color:#3182ce;">72</div><div class="card-desc">个主章节</div></div>
+  <div class="card"><div class="card-label">段落</div><div class="card-value" style="color:#38a169;">519</div><div class="card-desc">个内容段落</div></div>
+  <div class="card"><div class="card-label">代码块</div><div class="card-value" style="color:#dd6b20;">0</div><div class="card-desc">个代码示例</div></div>
+  <div class="card"><div class="card-label">列表项</div><div class="card-value" style="color:#6b46c1;">272</div><div class="card-desc">个列表条目</div></div>
+</div>
+<blockquote>Start with the loop. Text becomes tokens. Tokens move through a Transformer. Attention decides which earlier tokens matter. The runtime keeps a KV…</blockquote>
+
+<h2>🏷️ 关键术语</h2>
+<div class="tag-list"><span class="tag tag-blue">The</span> <span class="tag tag-blue">For</span> <span class="tag tag-blue">Use</span> <span class="tag tag-blue">Qwen</span> <span class="tag tag-blue">Studio</span> <span class="tag tag-blue">Harbor</span> <span class="tag tag-blue">You</span> <span class="tag tag-blue">Local</span> <span class="tag tag-blue">Transformers</span> <span class="tag tag-blue">They</span> <span class="tag tag-blue">Transformer</span> <span class="tag tag-blue">That</span></div>
+
+<h2>📖 章节分析</h2>
+<details>
+<summary>📌 Focus</summary>
+<div class="info">
+<p>This is a model-first guide. It starts with the mechanics: inference, tokens, Transformers, attention, KV cache, prefill, decode, decoding controls, model packages, chat templates, model types, long c…</p>
+</div>
+</details>
+<details>
+<summary>📌 What An LLM Actually Does</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586295992369152)
+
+Running a model is called inference. For a standard decoder-only LLM, inference is the same loop repeated over …</p>
+</div>
+</details>
+<details>
+<summary>📌 Tokens</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586520370929664)
+
+LLMs do not see raw text as words. They see tokens: Small chunks of text represented internally as integer IDs.…</p>
+</div>
+</details>
+<details>
+<summary>📌 Transformers</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586563513516033)
+
+Most modern LLMs are based on the Transformer architecture. Most local chat LLMs are decoder-only Transformers:…</p>
+</div>
+</details>
+<details>
+<summary>📌 Attention</summary>
+<div class="info">
+<p>Attention is how a token decides which earlier tokens matter for the next prediction. It is also one of the reasons local inference is so memory-sensitive.
+
+Classic MHA (multi-head attention) stores s…</p>
+</div>
+</details>
+<details>
+<summary>📌 KV Cache</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586637371002880)
+
+The KV cache is the model's working memory during generation. It stores key/value attention states for previous…</p>
+</div>
+</details>
+<details>
+<summary>📌 Prefill And Decode</summary>
+<div class="info">
+<p>LLM inference has two different performance regimes: prefill and decode.
+
+[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587953103196160)
+
+Prefill processes the prompt you gave…</p>
+</div>
+</details>
+<details>
+<summary>📌 Decoding</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586728093810688)
+
+After the model produces logits, it has not written anything yet. It has only scored every possible next token.…</p>
+</div>
+</details>
+<details>
+<summary>📌 What A Model Package Contains</summary>
+<div class="info">
+<p>A runnable local LLM is more than one big weight file. A model package usually includes:
+
+- Architecture/config: Layer count, hidden size, attention type, RoPE settings, vocabulary size, special token…</p>
+</div>
+</details>
+<details>
+<summary>📌 Chat Templates</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586803171872768)
+
+A chat model was trained with a specific conversation format. For example, it may expect something like:
+
+&gt; &lt;|s…</p>
+</div>
+</details>
+<details>
+<summary>📌 Model Types</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586851800641536)
+
+Not all LLMs are tuned for the same behavior.
+
+For most users, the default starting point should be a recent in…</p>
+</div>
+</details>
+<details>
+<summary>📌 What Local Really Means</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586889121570816)
+
+A local LLM is a model whose weights and inference runtime are under your control. You decide what model runs, …</p>
+</div>
+</details>
+<details>
+<summary>📌 Quantization</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586936164802560)
+
+Quantization stores weights in lower precision to reduce memory and sometimes improve throughput.
+
+The 2026 rul…</p>
+</div>
+</details>
+<details>
+<summary>📌 File Formats And Load Safety</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586972449783808)
+
+safetensors is a safe tensor serialization format designed to store tensors without Python pickle behavior. Use…</p>
+</div>
+</details>
+<details>
+<summary>📌 Runtimes And Serving Modes</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587011200892928)
+
+A runtime is the software that loads the model and performs inference. In 2026, the local LLM runtime ecosystem…</p>
+</div>
+</details>
+<details>
+<summary>📌 VRAM Math For Local Models</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587105132318720)
+
+There are three main memory consumers:
+
+1. Model weights
+    
+2. KV cache
+    
+3. Runtime overhead
+    
+
+The ro…</p>
+</div>
+</details>
+<details>
+<summary>📌 Hardware Tiers In Practice</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587158437838848)
+
+These are practical 2026 rules of thumb, assuming quantized inference and sane context lengths. Exact results d…</p>
+</div>
+</details>
+<details>
+<summary>📌 Choose A Model That Fits</summary>
+<div class="info">
+<p>The practical question is not what is the best model? It is what is the smallest model that wins your real workload on your hardware?
+
+Start with a recent instruct/chat model that fits comfortably wit…</p>
+</div>
+</details>
+<details>
+<summary>📌 What Controls Speed</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587312385548288)
+
+Tokens per second is not controlled by one thing. It is the result of model size, memory bandwidth, compute, at…</p>
+</div>
+</details>
+<details>
+<summary>📌 Long Context</summary>
+<div class="info">
+<p>Long context sounds magical: 128K, 256K, or even 1M tokens in one prompt. It is useful, but it has real costs.
+
+More context means more KV cache memory, slower prompt processing, more attention work, …</p>
+</div>
+</details>
+<details>
+<summary>📌 Multimodality</summary>
+<div class="info">
+<p>Multimodal local models accept images, and sometimes audio or video, in addition to text. Modern open-weight ecosystems increasingly include these models.
+
+The hidden cost is that non-text input becom…</p>
+</div>
+</details>
+<details>
+<summary>📌 The 2026 Local Model Scene</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587487002828801)
+
+The model scene changes fast. As of May 21, 2026, local LLM users should think in terms of families and ecosyst…</p>
+</div>
+</details>
+<details>
+<summary>📌 Failure Modes And Fixes</summary>
+<div class="info">
+<p>Most local LLM failures are not mysterious. They usually come from memory fit, formatting, runtime support, decoding settings, or retrieval quality.
+
+[
+
+](https://x.com/TheAhmadOsman/article/205759022…</p>
+</div>
+</details>
+<details>
+<summary>📌 How To Grow The Stack</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587583895375874)
+
+Beginner: Easiest Useful Setup
+
+Use Harbor or LM Studio, a recent 4B to 9B instruct model, Q4 quantization, 8K …</p>
+</div>
+</details>
+<details>
+<summary>📌 Privacy Is Not Automatic</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587696189517824)
+
+Local LLMs improve privacy because prompts and outputs can remain on your hardware. But local does not automati…</p>
+</div>
+</details>
+<details>
+<summary>📌 Benchmarks That Matter</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587732243738624)
+
+Benchmark the stack you will actually run. A model's BF16 leaderboard score is not your Q4 local reality.
+
+Meas…</p>
+</div>
+</details>
+<details>
+<summary>📌 Coding With Local Models</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588413524533249)
+
+Coding is one of the best local LLM use cases because prompts often include private code, latency matters, iter…</p>
+</div>
+</details>
+<details>
+<summary>📌 Local Agents Need Guardrails</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588467572379648)
+
+A local LLM becomes much more useful when it can use tools: File search, shell commands, browser automation, da…</p>
+</div>
+</details>
+<details>
+<summary>📌 RAG Beats Giant Prompts</summary>
+<div class="info">
+<p>RAG means Retrieval-Augmented Generation. Instead of stuffing all information into the prompt, you retrieve relevant chunks from a knowledge base and give only those chunks to the model.
+
+A good local…</p>
+</div>
+</details>
+<details>
+<summary>📌 Documents And Knowledge Work</summary>
+<div class="info">
+<p>For private documents, local LLMs shine: Meeting transcript summaries, contract review, technical documentation Q&amp;A, research note synthesis, email drafting, policy search, internal support assistants…</p>
+</div>
+</details>
+<details>
+<summary>📌 Edge Deployment</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057589252796370944)
+
+Small models are increasingly useful on phones, laptops, robots, IoT gateways, factory devices, vehicles, medic…</p>
+</div>
+</details>
+<details>
+<summary>📌 A Local LLM Runbook</summary>
+<div class="info">
+<p>Use this as the final gate before trusting a local model for real work.
+
+Choose and fit: Pick a model family suited to the task, read the license, confirm hardware requirements, choose a quantization …</p>
+</div>
+</details>
+<details>
+<summary>📌 Fine-Tuning</summary>
+<div class="info">
+<p>Fine-tuning changes model behavior by training on additional data. For local users, the most important methods are LoRA and QLoRA.
+
+LoRA freezes the base model and trains small low-rank adapter weight…</p>
+</div>
+</details>
+<details>
+<summary>📌 Open-Weight Does Not Mean Opensource</summary>
+<div class="info">
+<p>In 2026, the phrase open model is often used sloppily. You should distinguish open-weight, source-available, opensource, and local-compatible.
+
+Open-weight usually means you can download the weights. …</p>
+</div>
+</details>
+<details>
+<summary>📌 Glossary</summary>
+<div class="info">
+<p>Model And Tuning Terms
+
+- Active Parameters: In an MoE model, only some parameters are used for a given token. A model may have hundreds of billions of total parameters but far fewer active parameters…</p>
+</div>
+</details>
+<details>
+<summary>📌 Final Words</summary>
+<div class="info">
+<p>The local LLM ecosystem includes compact edge models, strong 7B to 32B consumer models, large MoE open-weight systems, multimodal models, long-context models, local reasoning models, mature inference …</p>
+</div>
+</details>
+<details>
+<summary>📌 专注</summary>
+<div class="info">
+<p>这是一份模型优先指南。 它从以下机制开始:推理、令牌、Transformers、注意力、KV 缓存、预填充、解码、解码控件、模型包、聊天模板、模型类型、长上下文、RAG、代理、微调和多模态模型。
+
+之后,它进入本地部署层:本地的真正含义、量化、VRAM 数学、硬件层、运行时选择、服务模式、许可证、模型选择、隐私、故障排除、基准测试、设置路径和实际用例。
+
+这个命令很重要。 在选择 GPU 之前,您…</p>
+</div>
+</details>
+<details>
+<summary>📌 法学硕士的实际作用</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586295992369152)
+
+运行模型称为推理。 对于仅标准解码器的 LLM,推理是一遍又一遍重复的相同循环:
+
+1. 将您的文本转换为令牌。
+    
+2. 将这些代币输入模型。
+    
+3. 计算每个可能的下一个标记的分数。
+    
+4. 选择…</p>
+</div>
+</details>
+<details>
+<summary>📌 代币</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586520370929664)
+
+LLM 不会将原始文本视为单词。 他们看到标记:内部表示为整数 ID 的小块文本。
+
+令牌可能是:
+
+- 一个完整的单词:“你好”
+    
+- 单词片段:“国际”、“国家”、“化”
+    
+- 标点符号
+    
+- …</p>
+</div>
+</details>
+<details>
+<summary>📌 变压器</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586563513516033)
+
+大多数现代 LLM 都基于 Transformer 架构。 大多数本地聊天 LLM 都是仅解码器的 Transformer:它们预测下一个令牌,同时回顾以前的令牌。
+
+高于此点的所有内容,包括令牌、权重、配置和聊天模板,都…</p>
+</div>
+</details>
+<details>
+<summary>📌 注意力</summary>
+<div class="info">
+<p>注意是令牌如何决定哪些早期令牌对于下一个预测很重要。 这也是局部推理对内存如此敏感的原因之一。
+
+经典的 MHA（多头注意力）为许多头存储单独的键/值状态。 它为模型提供了灵活性,但它使 KV 缓存变得很大。
+
+现代本地模型通常使用更有效的注意力设计:
+
+- MQA:多个查询头共享一个键/值头。 它节省内存,但表达能力可能较差。
+    
+- GQA:查询头组共享键/值头。 这是当前许多本地模式中…</p>
+</div>
+</details>
+<details>
+<summary>📌 KV缓存</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586637371002880)
+
+KV缓存是模型在生成过程中的工作内存。 它存储先前令牌的键/值注意力状态,因此模型不会从头开始重新计算每个生成的令牌的整个历史记录。
+
+如果没有 KV 缓存,生成效率将极其低下。 使用 KV 缓存,可以生成,但缓存消耗的内…</p>
+</div>
+</details>
+<details>
+<summary>📌 预填充和解码</summary>
+<div class="info">
+<p>LLM 推理有两种不同的性能机制:预填充和解码。
+
+[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587953103196160)
+
+预填充处理您给模型的提示。 如果您粘贴一个包含 20,000 个令牌的文档,模型必须处理这 20,000 个令牌才能生成第一个答案令牌。 预填充相对可并行化,因此 GPU…</p>
+</div>
+</details>
+<details>
+<summary>📌 解码</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586728093810688)
+
+模型生成logits后,还没有写入任何内容。 它只获得了所有可能的下一个代币。 解码是一种将这些分数转换为一个实际标记、将该标记附加到上下文并重复循环的策略。
+
+运行时,或
+
+[推理引擎](https://x.com/Th…</p>
+</div>
+</details>
+<details>
+<summary>📌 模型包包含什么</summary>
+<div class="info">
+<p>可运行的本地 LLM 不仅仅是一个大权重文件。 模型包通常包括:
+
+- 架构/配置:层数、隐藏大小、注意力类型、RoPE 设置、词汇大小、特殊标记和上下文长度。
+    
+- 权重:学习到的参数,通常存储为安全传感器、GGUF、GPTQ、AWQ、EXL2 或其他特定于运行时的格式。
+    
+- Tokenizer:将文本转换为令牌 ID 并将令牌 ID 重新转换为文本的规则。
+    
+- 聊天…</p>
+</div>
+</details>
+<details>
+<summary>📌 聊天模板</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586803171872768)
+
+使用特定的对话格式训练聊天模型。 例如,它可能会期望类似这样的结果:
+
+&gt; &lt;|系统|&gt; 你是一位乐于助人的助手。 &lt;|用户|&gt; 解释 KV 缓存。 &lt;|助手|&gt;
+
+另一个模型可能会期望:
+
+&gt; [BOS] [INST] …</p>
+</div>
+</details>
+<details>
+<summary>📌 模型类型</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586851800641536)
+
+并非所有 LLM 都针对相同的行为进行调整。
+
+对于大多数用户来说,默认起点应该是最近的指示/聊天调整模型,其大小适合内存。
+
+除非您知道原因,否则不要从基本模型开始。 基础模型会完成您的提示而不是回答它。 它们对于研究人…</p>
+</div>
+</details>
+<details>
+<summary>📌 本地化真正意味着什么</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586889121570816)
+
+本地 LLM 是一个模型,其权重和推理运行时由您控制。 您可以决定什么模型运行、如何运行、看到哪些数据以及输出会发生什么。
+
+这种自由伴随着工作而来。 您现在是行动团队。 您可以处理下载、更新、兼容性、内存限制和安全性。 …</p>
+</div>
+</details>
+<details>
+<summary>📌 量化</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586936164802560)
+
+量化以较低的精度存储权重,以减少内存,有时还可以提高吞吐量。
+
+2026年本地用户经验法则:
+
+- FP16/BF16:内存充足时质量最佳。 以此作为评估的基准。
+    
+- Q8 / INT8:对于许多任务来说几乎无损…</p>
+</div>
+</details>
+<details>
+<summary>📌 文件格式和负载安全</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586972449783808)
+
+safetensors 是一种安全的张量序列化格式,旨在存储张量,而无需 Python pickle 行为。 尽可能使用安全传感器,特别是对于 PyTorch/Transformers 型号。
+
+避免来自不受信任来源的随机…</p>
+</div>
+</details>
+<details>
+<summary>📌 运行时和服务模式</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587011200892928)
+
+运行时是加载模型并执行推理的软件。 2026 年,本地 LLM 运行时生态系统成熟、有用且分散。
+
+对于在当地进行实验的单人,请从开始
+
+[港口](https://github.com/av/harbor)
+
+, LM S…</p>
+</div>
+</details>
+<details>
+<summary>📌 本地模型的 VRAM 数学</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587105132318720)
+
+主要内存消耗者有三个:
+
+1. 模型权重
+    
+2. KV缓存
+    
+3. 运行时开销
+    
+
+粗重量记忆公式为:
+
+&gt; weight_memory ~= 参数 x bytes_per_parameter
+
+有…</p>
+</div>
+</details>
+<details>
+<summary>📌 实践中的硬件层</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587158437838848)
+
+这些是实用的 2026 年经验法则,假设量化推理和合理的上下文长度。 确切的结果取决于运行时、量化、模型架构、注意力类型、上下文长度和操作系统/驱动程序开销。
+
+对于 2026 年大多数严肃的本地用户来说,16 GB 是最…</p>
+</div>
+</details>
+<details>
+<summary>📌 选择合适的型号</summary>
+<div class="info">
+<p>实际问题不是最好的模型是什么？ 最小的模型是什么赢得了硬件上的实际工作负载？
+
+从最近的指导/聊天模型开始,该模型可以舒适地适应您实际需要的上下文长度。 如果您使用的是 8 GB 至 12 GB 的 VRAM 或统一内存,请从小规模开始。 如果您使用的是 16 GB 至 24 GB,请先测试 7B 至 14B 级型号。 如果您拥有 48 GB 或更多,则更大密度的模型和 MoE 模型将变得逼真。
+…</p>
+</div>
+</details>
+<details>
+<summary>📌 什么控制速度</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587312385548288)
+
+每秒代币不受一件事控制。 它是模型大小、内存带宽、计算、注意力内核、上下文长度、量化、批处理和运行时质量的结果。
+
+主要杠杆是:
+
+- 内存带宽:解码通常会重复传输模型权重,因此带宽在单用户令牌速度中占主导地位。
+    …</p>
+</div>
+</details>
+<details>
+<summary>📌 长期背景</summary>
+<div class="info">
+<p>长上下文听起来很神奇:一个提示中有 128K、256K 甚至 1M 个标记。 它很有用,但成本却很高。
+
+更多的上下文意味着更多的 KV 缓存内存、更慢的提示处理、更多的注意力工作、更难的评估以及更多不相关文本分散模型注意力的方式。 质量也会随着距离的增加而下降。 模型可以很好地处理长文档的结尾,同时缺少隐藏在开头附近的关键细节。
+
+当检索错过上下文时,使用长上下文进行全文档分析、代码库切片、法律…</p>
+</div>
+</details>
+<details>
+<summary>📌 多模态</summary>
+<div class="info">
+<p>除了文本之外,多模式本地模型还接受图像,有时还接受音频或视频。 现代开放权重生态系统越来越多地包含这些模型。
+
+隐性成本是非文本输入也成为代币。 视觉编码器添加内存。 图像补丁消耗上下文。 音频和视频可能会超出输入预算。 多模式模板也比纯文本模板更容易出错。
+
+单个高分辨率图像可以在上下文窗口中消耗数千个标记。 如果您在本地运行多模态模型,则计算图像标记的方式与计算文本标记的方式相同。 它们来自相…</p>
+</div>
+</details>
+<details>
+<summary>📌 2026 年本地模特场景</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587487002828801)
+
+模型场景变化很快。 截至 2026 年 5 月 21 日,当地法学硕士用户应该从家庭和生态系统的角度思考,而不是从最佳模型的角度思考。
+
+Qwen 3。5 / Qwen 3。6 是一个主要的开放权重系列,因为它涵盖了整个堆…</p>
+</div>
+</details>
+<details>
+<summary>📌 故障模式和修复</summary>
+<div class="info">
+<p>大多数当地的法学硕士失败并不神秘。 它们通常来自内存拟合、格式化、运行时支持、解码设置或检索质量。
+
+[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588641975730176)
+
+内存不足:权重、KV 缓存、运行时开销或批量大小不适合。 使用更小的模型,减少上下文,降低批量/并发性,选择更好的量化,…</p>
+</div>
+</details>
+<details>
+<summary>📌 如何扩大堆栈</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587583895375874)
+
+初学者:最简单有用的设置
+
+使用 Harbor 或 LM Studio、最新的 4B 到 9B 指令模型、Q4 量化、8K 到 32K 上下文以及内置聊天 UI。 下载相同尺寸类别中的两到三个模型,并在相同的提示上进行比较…</p>
+</div>
+</details>
+<details>
+<summary>📌 隐私不是自动的</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587696189517824)
+
+本地 LLM 可以提高隐私性,因为提示和输出可以保留在您的硬件上。 但本地并不一定意味着安全。
+
+威胁包括恶意模型文件、基于 pickle 的权重加载、不受信任的 trust_remote_code、检索到的文档中的提示注…</p>
+</div>
+</details>
+<details>
+<summary>📌 重要的基准</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587732243738624)
+
+对您实际运行的堆栈进行基准测试。 模特的 BF16 排行榜分数不是您的 Q4 本地现实。
+
+测量质量、延迟、内存、可靠性和操作拟合度:
+
+- 质量:正确完成实际任务,而不仅仅是通用基准。
+    
+- 延迟:第一个令牌的时…</p>
+</div>
+</details>
+<details>
+<summary>📌 使用本地模型进行编码</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588413524533249)
+
+编码是最好的本地 LLM 用例之一,因为提示通常包括私有代码、延迟问题、迭代频繁、API 成本可以快速增长,并且本地模型可以与编辑器、shell、grep、测试运行器和补丁工作流程集成。
+
+最强大的本地编码设置不是裸聊天机…</p>
+</div>
+</details>
+<details>
+<summary>📌 当地特工需要护栏</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588467572379648)
+
+当本地 LLM 可以使用以下工具时,它会变得更加有用:文件搜索、shell 命令、浏览器自动化、数据库、代码执行、日历、票证系统、内部 API、矢量数据库、家庭自动化、机器人或边缘设备。
+
+工具的使用改变了安全模型。 出现…</p>
+</div>
+</details>
+<details>
+<summary>📌 RAG 击败巨型提示</summary>
+<div class="info">
+<p>RAG 表示检索增强生成。 您无需将所有信息塞进提示中,而是从知识库中检索相关块,并仅将这些块提供给模型。
+
+一个好的本地 RAG 系统通常具有文档提取、解析、分块、嵌入、向量索引、检索、重新排序、提示构建、答案生成、基础检查和评估。 每个阶段都是一个故障点。
+
+糟糕的解析会将表格变成垃圾。 错误的分块会将答案跨越界限。 错误的检索会返回不相关的段落。 糟糕的重新排名将正确答案埋在第 20 位。 …</p>
+</div>
+</details>
+<details>
+<summary>📌 文档和知识工作</summary>
+<div class="info">
+<p>对于私人文件,本地 LLM 表现出色:会议记录摘要、合同审查、技术文档问答、研究说明综合、电子邮件起草、政策搜索、内部支持助理和合规工作流程都受益于将源材料靠近拥有它的机器或组织。
+
+工作流程简单但不宽容。 仔细解析文档,保留页面和部分元数据,进行语义分块,使用嵌入和重新排序器,请求引用,从一般推理的来源中分离答案,并评估引用的忠实度。
+
+不要假设模型知道文档中的内容。 它只知道您在提示中输入的内…</p>
+</div>
+</details>
+<details>
+<summary>📌 边缘部署</summary>
+<div class="info">
+<p>[
+
+](https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057589252796370944)
+
+小型模型在手机、笔记本电脑、机器人、物联网网关、工厂设备、车辆、医疗设备、离线现场设备和浏览器应用程序上越来越有用。 边缘不仅仅是工作站的一个较小版本。 它有一组不同的约束。
+
+边缘部署受低内存、低功耗、热限制、间歇性连接…</p>
+</div>
+</details>
+<details>
+<summary>📌 本地法学硕士运行手册</summary>
+<div class="info">
+<p>在信任本地模型进行实际工作之前,请将其用作最后一扇门。
+
+选择并适合:选择适合任务的模型系列,阅读许可证,确认硬件要求,选择量化级别,并估计全部内存费用。 不要止步于体重尺寸。 包括 KV 缓存、运行时开销、批处理/并发和安全裕度。
+
+加载和格式:优先选择来自信誉良好的来源的安全传感器或 GGUF,避免不受信任的基于 pickle 的文件,验证标记器和聊天模板,有意设置上下文长度,并为任务选择解码…</p>
+</div>
+</details>
+<details>
+<summary>📌 微调</summary>
+<div class="info">
+<p>微调通过对附加数据进行训练来改变模型行为。 对于本地用户来说,最重要的方法是LoRA和QLoRA。
+
+LoRA 冻结基础模型并训练小型低秩适配器权重。 这减少了可训练参数并允许您维护多个轻量级适配器。 QLoRA 通过将冻结的 4 位量化模型微调到 LoRA 适配器中来扩展这一点。
+
+当您需要一致的写作风格、特定领域的输出格式、重复的分类或提取行为、工具调用格式可靠性、专门的助手角色、RAG 无法…</p>
+</div>
+</details>
+<details>
+<summary>📌 开放权重并不意味着开放源</summary>
+<div class="info">
+<p>2026年,“开放模型”一词经常被草率使用。 您应该区分开放权重、源可用、开源和本地兼容。
+
+开放权重通常意味着您可以下载权重。 这并不自动意味着您可以在商业上使用该模型、自由修改它、训练其输出、以任何规模部署它或忽略归因要求。
+
+源可用意味着代码或权重可见。 这并不一定意味着许可证是开源的。
+
+开源人工智能模型是一个更有力的说法。 OSI 的开源 AI 定义将 AI 系统视为包括架构、参数/权重…</p>
+</div>
+</details>
+<details>
+<summary>📌 词汇表</summary>
+<div class="info">
+<p>型号及调校术语
+
+- 活动参数:在 MoE 模型中,仅针对给定的令牌使用某些参数。 一个模型可能有数千亿个总参数,但每个令牌的活动参数要少得多。
+    
+- 适配器:通常通过 LoRA 添加到基础模型的小型可训练模块。
+    
+- 基本模型:未经专门调整以用于聊天或指令跟踪的预训练模型。
+    
+- 微调:改变目标域或输出风格的模型行为的附加训练。
+    
+- 指示模型:根据指示进行调整的…</p>
+</div>
+</details>
+<details>
+<summary>📌 最后的话</summary>
+<div class="info">
+<p>本地 LLM 生态系统包括紧凑边缘模型、强大的 7B 至 32B 消费者模型、大型 MoE 开放权重系统、多模态模型、长上下文模型、本地推理模型、成熟的推理运行时以及功能日益强大的私有服务堆栈。
+
+但基本原理没有改变:模型一次预测一个令牌,令牌不是单词,权重不是整个模型,聊天模板很重要,KV 缓存是隐藏的内存账单,量化是一种权衡,长上下文不是免费的,RAG 质量取决于检索,微调需要评估,本地隐私仍…</p>
+</div>
+</details>
+
+
+<h2>💡 概要</h2>
+<div class="card info">
+<p>本文共 <strong>72 个章节</strong>，约 <strong>32,664 tokens</strong>，包含 0 个代码块和 272 个列表项。</p>
+<p>报告基于 greyhound-html report 模式自动生成，使用 details/summary 折叠保持概览整洁。</p>
+</div>
+</body>
+</html>
