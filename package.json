@@ -1,0 +1,55 @@
+{
+  "name": "@baiyun-canggou/greyhound-html",
+  "version": "0.1.0",
+  "description": "Convert Markdown to styled HTML — AI analysis reports with rich visual hierarchy. HTML is the new Markdown.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    }
+  },
+  "bin": {
+    "greyhound-html": "./dist/main.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "precommit": "npm run build && node dist/main.js --help"
+  },
+  "dependencies": {
+    "highlight.js": "^11.0.0",
+    "marked": "^12.0.0",
+    "marked-highlight": "^2.0.0"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": { "node": ">=18" },
+  "keywords": [
+    "markdown", "html", "converter", "mermaid",
+    "documentation", "analysis", "report",
+    "greyhound", "baiyun-canggou"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/baiyun-canggou/greyhound-html"
+  },
+  "publishConfig": { "access": "public" }
+}

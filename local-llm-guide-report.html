@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本地 LLM 完全指南 — 分析与要点</title>
+<style>
+  /* ===== 颜色语义 ===== */
+  .critical { border-left:4px solid #e53e3e; background:#fff5f5; }
+  .warning  { border-left:4px solid #dd6b20; background:#fffaf0; }
+  .info     { border-left:4px solid #3182ce; background:#ebf8ff; }
+  .success  { border-left:4px solid #38a169; background:#f0fff4; }
+  .pending  { border-left:4px solid #d69e2e; background:#fffff0; }
+
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    max-width:960px; margin:0 auto; padding:24px;
+    background:#f7fafc; color:#1a202c; line-height:1.7;
+  }
+
+  h1 { font-size:2em; margin-bottom:4px; color:#1a202c; }
+  h2 { font-size:1.4em; margin:24px 0 12px; padding-bottom:6px; border-bottom:2px solid #e2e8f0; }
+  h3 { font-size:1.1em; margin:16px 0 8px; }
+  .subtitle { color:#718096; font-size:0.95em; margin-bottom:24px; }
+
+  /* 概览卡片网格 */
+  .grid-4 { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin:16px 0; }
+  .grid-3 { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; margin:16px 0; }
+  .grid-2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(380px,1fr)); gap:12px; margin:16px 0; }
+
+  /* 卡片组件共用样式 */
+  .card, .critical, .warning, .info, .success, .pending {
+    padding:16px; background:#fff; border:1px solid #e2e8f0;
+    border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin:12px 0;
+  }
+
+  .card-label {
+    font-size:0.8em; color:#718096; text-transform:uppercase;
+    letter-spacing:0.05em; margin-bottom:2px;
+  }
+  .card-value {
+    font-size:1.6em; font-weight:700; margin:2px 0;
+  }
+  .card-desc {
+    font-size:0.9em; color:#4a5568;
+  }
+
+  /* 折叠 */
+  details { margin:8px 0; }
+  details .critical, details .warning, details .info, details .success, details .pending { margin:8px 0; }
+  summary {
+    font-weight:600; cursor:pointer; padding:10px 0;
+    font-size:1.05em; user-select:none;
+  }
+  summary:hover { color:#3182ce; }
+
+  /* 标签 */
+  .tag { display:inline-block; padding:2px 10px; border-radius:4px; font-size:0.8em; font-weight:600; margin:2px; }
+  .tag-red    { background:#fed7d7; color:#c53030; }
+  .tag-green  { background:#c6f6d5; color:#276749; }
+  .tag-blue   { background:#bee3f8; color:#2b6cb0; }
+  .tag-yellow { background:#fefcbf; color:#975a16; }
+  .tag-purple { background:#e9d8fd; color:#6b46c1; }
+
+  /* SVG 图表容器 */
+  .diagram-box {
+    background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+    padding:20px; margin:16px 0; text-align:center;
+  }
+
+  /* 代码块 */
+  code {
+    background:#edf2f7; padding:2px 6px; border-radius:4px;
+    font-family:'SF Mono','Fira Code',monospace; font-size:0.9em;
+  }
+  pre {
+    background:#1a202c; color:#e2e8f0; padding:16px; border-radius:8px;
+    overflow-x:auto; font-size:0.85em; line-height:1.5;
+  }
+  pre code { background:transparent; padding:0; color:inherit; }
+
+  /* 表格 */
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.9em; }
+  th, td { padding:10px 12px; text-align:left; border-bottom:1px solid #e2e8f0; }
+  th { background:#f7fafc; font-weight:600; color:#4a5568; }
+  tr:hover { background:#f7fafc; }
+
+  /* 引用 */
+  blockquote {
+    border-left:3px solid #3182ce; margin:12px 0; padding:8px 16px;
+    background:#ebf8ff; border-radius:0 8px 8px 0;
+    font-style:italic; color:#2d3748;
+  }
+
+  /* 步骤卡片 */
+  .step { display:flex; gap:16px; align-items:flex-start; margin:12px 0; padding:12px 16px; background:#fff; border-radius:8px; border:1px solid #e2e8f0; }
+  .step-num { width:32px; height:32px; background:#3182ce; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; }
+
+  @media (max-width:600px) {
+    .grid-4, .grid-3, .grid-2 { grid-template-columns:1fr; }
+    body { padding:16px; }
+    .step { flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🧠 本地 LLM 完全指南</h1>
+<div class="subtitle">
+  基于 Ahmad Osman 文章整理 · 从循环开始理解 LLM 推理全链路
+  <br><span id="date"></span> · <span class="tag tag-blue">模型优先指南</span>
+  <span class="tag tag-purple">本地部署</span>
+  <span class="tag tag-green">推理</span>
+</div>
+
+<!-- ===== 概览卡片 ===== -->
+<h2>📊 核心指标速览</h2>
+<div class="grid-4">
+  <div class="card">
+    <div class="card-label">核心循环</div>
+    <div class="card-value" style="color:#3182ce;">6 步</div>
+    <div class="card-desc">Token → Transformer → Attention → KV Cache → Decode → Repeat</div>
+  </div>
+  <div class="card">
+    <div class="card-label">推荐 VRAM</div>
+    <div class="card-value" style="color:#38a169;">16-24 GB</div>
+    <div class="card-desc">2026 年本地用户最低舒适层</div>
+  </div>
+  <div class="card">
+    <div class="card-label">量化甜区</div>
+    <div class="card-value" style="color:#dd6b20;">Q4-Q5</div>
+    <div class="card-desc">消费级本地部署的最佳权衡</div>
+  </div>
+  <div class="card">
+    <div class="card-label">关键家族</div>
+    <div class="card-value" style="color:#6b46c1;">6+</div>
+    <div class="card-desc">Qwen / Gemma / DeepSeek / Mistral / Kimi / Nemotron</div>
+  </div>
+</div>
+
+<!-- ===== 核心循环 SVG ===== -->
+<h2>🔄 推理核心循环</h2>
+<div class="diagram-box">
+  <svg viewBox="0 0 800 160" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#4a5568"/>
+      </marker>
+    </defs>
+
+    <!-- 背景 -->
+    <rect x="0" y="0" width="800" height="160" rx="12" fill="#f7fafc"/>
+
+    <!-- 步骤 1: 文本 → Token -->
+    <rect x="20" y="30" width="110" height="60" rx="8" fill="#3182ce" opacity="0.9"/>
+    <text x="75" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">📝 文本 → Token</text>
+    <text x="75" y="72" text-anchor="middle" fill="#bee3f8" font-size="11">分词器编码</text>
+
+    <line x1="130" y1="60" x2="170" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- 步骤 2: Transformer -->
+    <rect x="175" y="30" width="110" height="60" rx="8" fill="#6b46c1" opacity="0.9"/>
+    <text x="230" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">🏗️ Transformer</text>
+    <text x="230" y="72" text-anchor="middle" fill="#e9d8fd" font-size="11">嵌入 + 位置编码</text>
+
+    <line x1="285" y1="60" x2="325" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- 步骤 3: Attention -->
+    <rect x="330" y="30" width="110" height="60" rx="8" fill="#38a169" opacity="0.9"/>
+    <text x="385" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">👁️ Attention</text>
+    <text x="385" y="72" text-anchor="middle" fill="#c6f6d5" font-size="11">决定哪些 token 重要</text>
+
+    <line x1="440" y1="60" x2="480" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- 步骤 4: KV Cache -->
+    <rect x="485" y="30" width="110" height="60" rx="8" fill="#dd6b20" opacity="0.9"/>
+    <text x="540" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">💾 KV Cache</text>
+    <text x="540" y="72" text-anchor="middle" fill="#fffaf0" font-size="11">工作内存复用</text>
+
+    <line x1="595" y1="60" x2="635" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- 步骤 5: Decode -->
+    <rect x="640" y="30" width="140" height="60" rx="8" fill="#e53e3e" opacity="0.9"/>
+    <text x="710" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">🎯 Decode</text>
+    <text x="710" y="72" text-anchor="middle" fill="#fff5f5" font-size="11">选择 → 采样 → 输出</text>
+
+    <!-- 循环箭头 -->
+    <path d="M 710 95 L 710 120 L 75 120 L 75 95" fill="none" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow)"/>
+    <text x="390" y="138" text-anchor="middle" fill="#718096" font-size="11">🔄 重复直到停止条件</text>
+
+    <!-- 数学公式 -->
+    <text x="390" y="155" text-anchor="middle" fill="#a0aec0" font-size="10">f(θ, sequence) → probability distribution over next_token</text>
+  </svg>
+</div>
+
+<!-- ===== 关键词：一页速览 ===== -->
+<h2>📌 核心概念</h2>
+<div class="grid-2">
+  <div class="success">
+    <strong>🎯 Token</strong> — 模型的工作单位。不是单词，是小块文本（单词/片段/标点/控制符）。<br>
+    决定上下文窗口大小、KV 缓存大小、延迟和预填充时间。
+  </div>
+  <div class="info">
+    <strong>🏗️ Transformer</strong> — 骨架。Token→向量→Attention→MLP→输出投影。<br>
+    堆叠数十层。RoPE 保持位置信息，残差连接稳定深层网络。
+  </div>
+  <div class="warning">
+    <strong>⚡ Attention</strong> — 决定哪些早期 token 重要。MHA 灵活但缓存大，GQA 是中间立场，MQA 省内存。<br>
+    FlashAttention 等内核可显著加速。
+  </div>
+  <div class="critical">
+    <strong>💾 KV Cache</strong> — 隐藏的内存账单。存储历史 token 的 K/V 状态。<br>
+    大小 ∝ token × layer × kv_heads × head_dim × precision × 2。13B MHA 在 32K 时可消耗 16 GiB。
+  </div>
+  <div class="pending">
+    <strong>🔀 预填充 vs 解码</strong> — 预填充处理提示（可并行，计算受限），解码一次一 token（带宽受限）。<br>
+    长提示 → 慢预填充。长答案 → 慢解码。长对话 → 都慢。
+  </div>
+  <div class="success">
+    <strong>🎛️ 量化</strong> — 降低精度以节省内存。FP16 → Q8 (几乎无损) → Q6/Q5 (优质) → Q4 (消费级甜区) → Q2 (必须)。<br>
+    数学/代码/工具调用最敏感。
+  </div>
+</div>
+
+<!-- ===== 分层展开：核心篇章 ===== -->
+
+<h2>📖 详细分析</h2>
+
+<details>
+<summary>🔤 Token — 模型的工作单位</summary>
+  <div class="info">
+    <p>LLM 不读原始文本，他们看到 <strong>token</strong>：内部表示为整数 ID 的小块文本。</p>
+    <p><strong>常见类型</strong>：完整单词、单词片段、标点、空格前缀、字节级回退、特殊控制标记 (如 &lt;|user|&gt;)。</p>
+    <p><strong>影响面</strong>：</p>
+    <ul>
+      <li>上下文窗口能装多少文本</li>
+      <li>KV 缓存变得多大</li>
+      <li>预填充时你付出多少延迟</li>
+      <li>多语言/代码的压缩效率</li>
+    </ul>
+    <div class="grid-3" style="margin-top:12px;">
+      <div class="pending"><strong>词汇量</strong><br><span style="font-size:0.9em;">大词汇量 → 更少 token → 更快</span></div>
+      <div class="pending"><strong>上下文窗口</strong><br><span style="font-size:0.9em;">2026: 8K~1M token。但支持 ≠ 同等质量</span></div>
+      <div class="pending"><strong>测试建议</strong><br><span style="font-size:0.9em;">始终测试实际使用的上下文长度</span></div>
+    </div>
+  </div>
+</details>
+
+<details>
+<summary>🏗️ Transformer — 骨架</summary>
+  <div class="info">
+    <p>大多数现代 LLM 是基于 Transformer 的 <strong>仅解码器架构</strong>：预测下一个 token，回看所有之前的 token。</p>
+    <p><strong>简化层包含</strong>：</p>
+    <ol>
+      <li><strong>Token 嵌入</strong>：Token ID → 向量</li>
+      <li><strong>位置信息</strong>（RoPE）：通过旋转表示编码位置</li>
+      <li><strong>自注意力</strong>：每个 token 回看前置 token，决定什么重要</li>
+      <li><strong>MLP/前馈块</strong>：展开并压缩表示的密集非线性计算，大部分参数在此</li>
+      <li><strong>层归一化 + 残差连接</strong>：稳定深度网络，帮助信息流通</li>
+      <li><strong>输出投影</strong>：最终隐藏状态 → 词汇表上的 logits</li>
+    </ol>
+  </div>
+</details>
+
+<details>
+<summary>👁️ Attention — 谁重要？</summary>
+  <div class="info">
+    <p>Attention 是 token 决定哪些早期 token 对下一个预测重要的机制。也是本地推理对内存敏感的关键原因。</p>
+    <table>
+      <tr><th>类型</th><th>说明</th><th>KV 缓存大小</th><th>表达能力</th></tr>
+      <tr><td><strong>MHA</strong> (Multi-Head)</td><td>每头独立 K/V</td><td>🔴 最大</td><td>✅ 最强</td></tr>
+      <tr><td><strong>GQA</strong> (Grouped-Query)</td><td>查询头分组共享 K/V</td><td>🟡 中等</td><td>✅ 好</td></tr>
+      <tr><td><strong>MQA</strong> (Multi-Query)</td><td>多查询头共享一个 K/V</td><td>🟢 最小</td><td>⚠️ 可能较弱</td></tr>
+    </table>
+    <p><strong>FlashAttention/SDPA</strong> 等现代内核减少注意力内存流量，使 GPU 更忙。同样模型+硬件下，好内核可以快得多。</p>
+    <div class="critical" style="margin-top:12px;">
+      <strong>⚠️ 比较模型时</strong>：看注意力类型 + KV 头 + 上下文长度 + 运行时支持，而不是只看参数数量。
+    </div>
+  </div>
+</details>
+
+<details>
+<summary>💾 KV Cache — 隐藏的内存账单</summary>
+  <div class="critical" open>
+    <p><strong>KV 缓存是模型生成时的工作内存</strong>。它存储之前 token 的 K/V 注意力状态，避免每生成一个新 token 就重新计算整个历史。</p>
+    <p><strong>大小公式</strong>：token × layer × kv_heads × head_dim × precision × 2</p>
+    <table>
+      <tr><th>模型</th><th>4K 上下文</th><th>32K 上下文</th><th>说明</th></tr>
+      <tr><td>7B MHA (FP16)</td><td>~2 GiB</td><td>~16 GiB</td><td>旧式设计</td></tr>
+      <tr><td>7B GQA (FP16)</td><td>~0.5 GiB</td><td>~4 GiB</td><td>现代设计</td></tr>
+      <tr><td>7B GQA (FP8)</td><td>~0.25 GiB</td><td>~2 GiB</td><td>推荐压缩层</td></tr>
+    </table>
+    <blockquote>这就是为什么模型空提示时能跑，加载长文档时崩了。权重合适，但工作内存不合适。</blockquote>
+  </div>
+</details>
+
+<details>
+<summary>🔀 预填充 vs 解码 — 两个性能机制</summary>
+  <div class="info">
+    <div class="grid-2">
+      <div class="critical">
+        <strong>预填充 (Prefill)</strong><br>
+        处理提示阶段。20K token 文档需先全部处理才能生成第一个 token。<br>
+        ⚡ 相对可并行化，GPU 能有效处理
+      </div>
+      <div class="warning">
+        <strong>解码 (Decode)</strong><br>
+        一次生成一个新 token。每个 token 依赖序列，因此更连续性。<br>
+        🐢 通常是感觉快慢的决定性阶段
+      </div>
+    </div>
+    <p><strong>三个惩罚规则</strong>：</p>
+    <ul>
+      <li>长提示 → 惩罚预填充</li>
+      <li>长答案 → 惩罚解码</li>
+      <li>长对话 → 两者都惩罚（KV 缓存不断增长）</li>
+    </ul>
+  </div>
+</details>
+
+<details>
+<summary>🎛️ 解码 — Logit 到 Token 的最后一公里</summary>
+  <div class="info">
+    <p>模型生成 logits 后还没写任何东西。解码是「将分数 → 选中一个 token → 追加到序列 → 重复」的策略。</p>
+    <p><strong>三个实际问题</strong>：</p>
+    <ul>
+      <li><strong>随机性</strong>：允许多少变化？ (temperature)</li>
+      <li><strong>尾部覆盖</strong>：采样器能深入低概率 token 多远？ (top-p)</li>
+      <li><strong>边界</strong>：什么防止循环/漫无目的/失控？ (repetition penalty, stop tokens)</li>
+    </ul>
+    <div class="grid-3">
+      <div class="success"><strong>精确工作</strong><br>低温 + 短 max_tokens + 明确 stop sequences + 约束解码</div>
+      <div class="pending"><strong>创意工作</strong><br>高温度 + top-p + 多候选排序</div>
+      <div class="info"><strong>编码工作</strong><br>第一遍保守，探索阶段放宽</div>
+    </div>
+    <blockquote>贪婪解码并不总更准确。它通常很脆弱，可能陷入循环或产生通用答案。</blockquote>
+  </div>
+</details>
+
+<!-- ===== 基础设施层 ===== -->
+<h2>🛠️ 基础设施决策</h2>
+
+<details>
+<summary>📦 模型包包含什么</summary>
+  <div class="info">
+    <p>一个可运行的本地 LLM 远不止一个大权重文件：</p>
+    <ol>
+      <li><strong>架构/配置</strong>：层数、隐藏大小、注意力类型、RoPE 设置……</li>
+      <li><strong>权重</strong>：学习参数，存储为 safetensors / GGUF / GPTQ / AWQ / EXL2</li>
+      <li><strong>Tokenizer</strong>：文本 ↔ Token ID 的规则</li>
+      <li><strong>聊天模板</strong>：system/user/assistant/tool 消息的确切 token 格式</li>
+      <li><strong>生成配置</strong>：temperature, top-p, stop tokens, repetition penalty 默认值</li>
+      <li><strong>许可证 & 模型卡</strong>：法律和操作说明</li>
+    </ol>
+    <div class="critical"><strong>⚠️ 如果 tokenizer/聊天模板错误，同样的权重会感觉像坏了。</strong></div>
+  </div>
+</details>
+
+<details>
+<summary>💬 聊天模板 — 最常见的问题来源</summary>
+  <div class="critical">
+    <p>每个聊天模型都有特定的对话格式。用错模板会导致：乱码、角色混淆、忽略系统提示、工具调用中断、benchmark 结果差。</p>
+    <p><strong>最佳实践</strong>：</p>
+    <ul>
+      <li>使用 tokenizer.apply_chat_template() (Transformers)</li>
+      <li>在 llama.cpp / LM Studio / vLLM 中使用模型特定模板</li>
+      <li>检查模型是 base / instruct / chat / reasoning / tool-tuned</li>
+      <li>确保 BOS/EOS token 正确</li>
+      <li>切换模型时务必切换模板</li>
+    </ul>
+  </div>
+</details>
+
+<details>
+<summary>📐 量化 — 精度的艺术</summary>
+  <div class="info">
+    <table>
+      <tr><th>层级</th><th>说明</th><th>适用场景</th></tr>
+      <tr><td><strong>FP16/BF16</strong></td><td>质量最佳基线</td><td>VRAM 充足时的评估基准</td></tr>
+      <tr><td><strong>Q8/INT8</strong></td><td>几乎无损，仍然较大</td><td>VRAM 够用，质量优先</td></tr>
+      <tr><td><strong>Q6/Q5</strong></td><td>优质，节省适中</td><td>强力的中间立场</td></tr>
+      <tr><td><strong>Q4</strong></td><td>消费级默认甜区</td><td>大多数聊天和文档工作流</td></tr>
+      <tr><td><strong>Q3/Q2</strong></td><td>仅当必须塞更大模型</td><td>数学/代码/结构化输出先下降</td></tr>
+    </table>
+    <blockquote>高精度的小模型可以击败压太死的大模型。Q6 的 7B 能在推理任务上击败 Q2 的 13B。</blockquote>
+  </div>
+</details>
+
+<details>
+<summary>💻 VRAM 数学 — 三巨头</summary>
+  <div class="info">
+    <p><strong>三个主要消费者</strong>：</p>
+    <ol>
+      <li><strong>模型权重</strong>：参数 × bytes_per_param（FP16 ≈ 2B/param, Q4 ≈ 0.5B/param）</li>
+      <li><strong>KV 缓存</strong>：随上下文线性增长（见上）</li>
+      <li><strong>运行时开销</strong>：CUDA 开销、框架缓冲区、临时张量、内存碎片</li>
+    </ol>
+    <p><strong>现实估算</strong>：total = quantized_weights + KV_cache_for_context + runtime_overhead + batch_concurrency + safety_margin</p>
+    <div class="critical">
+      <strong>陷阱</strong>：Q4 的 13B 在 8K 上下文下轻松，但在 32K 下崩了。权重没变，上下文变了。<br>
+      留出 10-20% 余量。99% VRAM 占用 → OOM。
+    </div>
+  </div>
+</details>
+
+<details>
+<summary>💾 文件格式 & 加载安全</summary>
+  <div class="info">
+    <table>
+      <tr><th>格式</th><th>说明</th><th>推荐场景</th></tr>
+      <tr><td><strong>Safetensors</strong></td><td>安全的张量序列化，无 pickle 风险</td><td>✅ PyTorch/Transformers</td></tr>
+      <tr><td><strong>GGUF</strong></td><td>llama.cpp 生态二进制格式</td><td>✅ CPU/Apple Silicon/桌面工具</td></tr>
+      <tr><td><strong>ONNX</strong></td><td>标准化部署，硬件特定加速</td><td>✅ Intel NPU / ARM / 自定义加速器</td></tr>
+      <tr><td><strong>EXL2/GPTQ/AWQ</strong></td><td>GPU 为中心的量化格式</td><td>✅ 大模型压缩到单 GPU</td></tr>
+      <tr><td><strong>.bin (pickle)</strong></td><td>⚠️ 可在反序列化时执行任意代码</td><td>❌ 避免不受信任来源</td></tr>
+    </table>
+    <div class="critical">本地 AI 安全规则一：不让陌生人的模型文件成为陌生人的代码执行。</div>
+  </div>
+</details>
+
+<!-- ===== 运行时与服务 ===== -->
+<h2>⚙️ 运行时与服务</h2>
+
+<details>
+<summary>🏃 运行时选择</summary>
+  <div class="info">
+    <table>
+      <tr><th>场景</th><th>推荐运行时</th><th>格式生态</th></tr>
+      <tr><td>单人本地实验</td><td><strong>Harbor / LM Studio / llama.cpp</strong></td><td>GGUF</td></tr>
+      <tr><td>团队/私有服务</td><td><strong>vLLM / SGLang</strong></td><td>safetensors / HF checkpoints</td></tr>
+      <tr><td>NVIDIA 最大性能</td><td><strong>TensorRT-LLM</strong></td><td>ONNX / 优化引擎</td></tr>
+      <tr><td>浏览器/移动</td><td><strong>MLC / WebLLM</strong></td><td>特定格式</td></tr>
+    </table>
+    <p><strong>运行时会把你锁定到格式生态</strong>。先选运行时，再找正确格式的模型。</p>
+  </div>
+</details>
+
+<details>
+<summary>📡 三种服务模式</summary>
+  <div class="info">
+    <div class="step"><div class="step-num">1</div><div><strong>单用户本地</strong> — 桌面应用/CLI。Harbor, LM Studio, llama.cpp server。目标：快速迭代，无运营负担。</div></div>
+    <div class="step"><div class="step-num">2</div><div><strong>团队/私有 API</strong> — OpenAI 兼容端点。vLLM, SGLang, TensorRT-LLM。目标：多人共享，监控，路由。</div></div>
+    <div class="step"><div class="step-num">3</div><div><strong>生产服务</strong> — 连续批处理、前缀缓存、推测解码、分页注意力、负载均衡……困难问题不是"能加载吗"，而是"在真实流量下能可靠服务吗"。</div></div>
+  </div>
+</details>
+
+<details>
+<summary>🚀 什么控制速度？</summary>
+  <div class="info">
+    <p>TPS (token per second) 不受一件事控制：</p>
+    <div class="grid-2">
+      <div class="info"><strong>内存带宽</strong> — 解码通常受带宽限制（反复传输权重）</div>
+      <div class="pending"><strong>GPU FLOP</strong> — 预填充和大批量更依赖计算</div>
+      <div class="critical"><strong>CPU 溢出</strong> — 痛苦的设置：模型几乎但没完全塞进显存，性能可能崩溃</div>
+      <div class="success"><strong>推测解码</strong> — DFlash/DDTree 每个目标 pass 验证多个草案 token</div>
+    </div>
+  </div>
+</details>
+
+<!-- ===== 模型选择 ===== -->
+<h2>🎯 模型选择</h2>
+
+<details open>
+<summary>📋 模型选择五项检查</summary>
+  <div class="info">
+    <ol>
+      <li><strong>任务适合</strong>：聊天/编码/文档/代理/多模态/边缘/微调</li>
+      <li><strong>内存适合</strong>：权重 + KV 缓存 + 运行时开销 + 余量 ≤ 可用内存的 80-90%</li>
+      <li><strong>接口适合</strong>：tokenizer, 聊天模板, stop tokens, 工具模式, 推理模式</li>
+      <li><strong>运行时适合</strong>：运行时是否良好支持这种架构/量化/上下文/服务模式</li>
+      <li><strong>许可证适合</strong>：你实际能在计划使用的地方用吗？</li>
+    </ol>
+    <blockquote>实际问题不是"最好的模型是什么"，而是"最小的模型是什么在硬件上赢了实际工作负载"。</blockquote>
+  </div>
+</details>
+
+<details>
+<summary>🌐 2026 年关键模型家族</summary>
+  <div class="info">
+    <div class="grid-3">
+      <div class="success"><strong>Qwen 3.5/3.6</strong><br>从笔记本到多 GPU 服务的完整生态。27B 密集是 2×3090 设置的强默认。</div>
+      <div class="info"><strong>Gemma 4</strong><br>Google DeepMind，Apache 2.0，边缘到密集/MoE，多模态。商业使用首选。</div>
+      <div class="pending"><strong>DeepSeek</strong><br>大型 MoE，多头潜在注意力，FP8 服务。高吞吐自托管。</div>
+      <div class="info"><strong>Mistral</strong><br>通用/编码/推理/多模态/专业全覆盖，部署支持强。</div>
+      <div class="pending"><strong>Kimi/Moonshot</strong><br>长上下文编码，多模态推理，工具使用，代理工作流。</div>
+      <div class="warning"><strong>Nemotron 3</strong><br>NVIDIA，混合 Mamba-Transformer MoE，企业代理。不是桌面聊天族。</div>
+    </div>
+  </div>
+</details>
+
+<details>
+<summary>📊 按场景推荐</summary>
+  <div class="info">
+    <div class="critical"><strong>简单本地助手</strong>：7B-14B 指令模型, Q4/Q5, 8K-32K 上下文, Harbor/LM Studio</div>
+    <div class="warning"><strong>本地编码助手</strong>：14B-32B 编码模型, 低温, 检索 + 测试 + 补丁工作流</div>
+    <div class="info"><strong>私人文档助手</strong>：强指令模型 + 本地嵌入 + Reranker + RAG 管道 + 引用执行</div>
+    <div class="pending"><strong>推理设置</strong>：推理调优模型, 预算额外 token, 中低温度, 验证环节</div>
+    <div class="success"><strong>低资源设置</strong>：1B-4B 模型, Q4/Q5, 短提示, 结构化任务, 严格输出模式</div>
+  </div>
+</details>
+
+<!-- ===== 安全与隐私 ===== -->
+<h2>🔒 安全与隐私</h2>
+
+<details>
+<summary>🛡️ 本地 ≠ 自动安全</summary>
+  <div class="critical">
+    <p><strong>本地并不自动意味着安全</strong>。威胁包括：恶意模型文件、pickle 权重加载、不受信任的 trust_remote_code、检索文档中的 prompt 注入、通过日志泄露机密、遥测数据外传。</p>
+    <p><strong>可行基线</strong>：</p>
+    <ul>
+      <li>优先 safetensors 或 GGUF，避免不受信任的 .bin</li>
+      <li>非特权用户 + 容器沙箱 + 可禁用网络</li>
+      <li>凭证排除在提示和 RAG 索引外</li>
+      <li>版本追踪：模型、提示、适配器、运行时、量化</li>
+    </ul>
+  </div>
+</details>
+
+<details>
+<summary>🤖 本地 Agent 需要护栏</summary>
+  <div class="critical">
+    <p>本地 LLM 配合工具使用后安全模型根本改变：</p>
+    <div class="step"><div class="step-num" style="background:#e53e3e;">1</div><div><strong>界定范围</strong>：只给代理实际需要的目录、API、网络、凭证</div></div>
+    <div class="step"><div class="step-num" style="background:#dd6b20;">2</div><div><strong>约束执行</strong>：沙箱、容器、最小权限用户、破坏性操作需确认</div></div>
+    <div class="step"><div class="step-num" style="background:#d69e2e;">3</div><div><strong>输入即恶意</strong>：检索的文档、网页、工单可能包含 prompt 注入</div></div>
+    <div class="step"><div class="step-num" style="background:#3182ce;">4</div><div><strong>审计追踪</strong>：记录工具调用、模型版本、提示、批准</div></div>
+  </div>
+</details>
+
+<!-- ===== RAG & 文档 ===== -->
+<h2>📚 RAG 与文档工作</h2>
+
+<details>
+<summary>🔍 RAG 击败巨型提示</summary>
+  <div class="info">
+    <p><strong>RAG = 检索增强生成</strong>。从知识库检索相关块，只把那些块给模型，而不是把整个知识库塞进提示。</p>
+    <p><strong>好 RAG 系统</strong>：文档提取 → 解析 → 分块 → 嵌入 → 向量索引 → 检索 → 重排序 → 提示构建 → 生成 → 基础检查 → 评估</p>
+    <div class="critical">
+      <strong>坏 RAG 不是 LLM 的锅</strong>—— 坏在分块、检索、重排序和评估。<br>
+      没有重叠的固定分块会分裂句子。没有 reranker 会埋没正确答案。
+    </div>
+  </div>
+</details>
+
+<details>
+<summary>📄 文档工作流</summary>
+  <div class="info">
+    <p>本地 LLM 在私有文档上表现突出：会议纪要摘要、合同审查、技术文档 QA、研究笔记综合。</p>
+    <p><strong>工作流</strong>：仔细解析 → 保留页/节元数据 → 语义分块 → 嵌入 + 重排序 → 要求引用 → 评估忠实度。</p>
+    <blockquote>不要假设模型知道文档里有什么。它只知道你放进提示或检索到上下文的东西。</blockquote>
+  </div>
+</details>
+
+<!-- ===== 实操清单 ===== -->
+<h2>✅ 本地 LLM 运行手册</h2>
+
+<details open>
+<summary>📋 信任一个本地模型前的最后检查</summary>
+  <div class="success">
+    <div class="step"><div class="step-num">1</div><div><strong>选择并适合</strong>：选模型家族，读许可证，确认硬件要求，选量化，估算全部内存费用</div></div>
+    <div class="step"><div class="step-num">2</div><div><strong>加载和格式</strong>：优先 safetensors/GGUF，避免 pickle，验证 tokenizer 和聊天模板</div></div>
+    <div class="step"><div class="step-num">3</div><div><strong>评估和操作</strong>：用代表性提示测试，测 TTFT 和解码速度，跟踪峰值内存</div></div>
+    <div class="step"><div class="step-num">4</div><div><strong>版本控制一切</strong>：模型、量化、运行时、提示、聊天模板、评估集、硬件配置</div></div>
+  </div>
+</details>
+
+<details>
+<summary>📉 故障模式速查</summary>
+  <div class="info">
+    <table>
+      <tr><th>症状</th><th>可能性</th><th>检查顺序</th></tr>
+      <tr><td>OOM</td><td><span class="tag tag-red">常见</span></td><td>模型太大？上下文太长？batch 太高？量化不够？余量不足？</td></tr>
+      <tr><td>胡言乱语/角色混淆</td><td><span class="tag tag-red">常见</span></td><td>聊天模板！BOS/EOS token！推理模式开关！</td></tr>
+      <tr><td>第一个 token 慢</td><td><span class="tag tag-yellow">一般</span></td><td>提示太长？前缀缓存？注意力后端？</td></tr>
+      <tr><td>流式慢</td><td><span class="tag tag-yellow">一般</span></td><td>带宽瓶颈？CPU 溢出？量化？推测解码？</td></tr>
+      <tr><td>文档回答错</td><td><span class="tag tag-yellow">一般</span></td><td>检索失败 → 检查分块、top-k、reranker、引用基础</td></tr>
+      <tr><td>JSON/工具调用差</td><td><span class="tag tag-blue">偶尔</span></td><td>温度太高？约束解码？更好的模型？更多示例？</td></tr>
+      <tr><td>重复循环</td><td><span class="tag tag-blue">偶尔</span></td><td>降低温度/top-p，加重复惩罚，检查 stop tokens</td></tr>
+    </table>
+    <blockquote>从无聊的检查开始。它们比模型交换解决更多问题。</blockquote>
+  </div>
+</details>
+
+<!-- ===== 进阶路径 ===== -->
+<h2>🧗 进阶路径</h2>
+
+<details>
+<summary>📈 如何扩大堆栈</summary>
+  <div class="info">
+    <div class="step"><div class="step-num" style="background:#38a169;">1</div><div><strong>初学者</strong>：Harbor/LM Studio + 4B-9B 指令模型 + Q4 + 8K-32K + 内置 UI。目标：学提示，比模型，懂速度。</div></div>
+    <div class="step"><div class="step-num" style="background:#3182ce;">2</div><div><strong>中级</strong>：llama.cpp/Transformers + GGUF/safetensors + OpenAI 兼容本地服务器 + 简单 RAG。</div></div>
+    <div class="step"><div class="step-num" style="background:#dd6b20;">3</div><div><strong>高级</strong>：vLLM/SGLang + 多 GPU + API + 监控 + 评估套件 + 带 reranker 的 RAG + 工具沙箱。</div></div>
+    <div class="step"><div class="step-num" style="background:#e53e3e;">4</div><div><strong>专家</strong>：TensorRT-LLM + 自定义内核 + 量化实验 + 推测解码 + 微调 + 蒸馏。</div></div>
+  </div>
+</details>
+
+<details>
+<summary>📏 重要基准</summary>
+  <div class="info">
+    <p>对你实际运行的堆栈做基准测试。BF16 排行榜分数不是你的 Q4 本地现实。</p>
+    <p>测量：质量（实际任务）、延迟（TTFT + decode TPS + 端到端）、内存（权重+KV+峰值+余量）、格式（模板正确性+JSON合规+工具可靠性）、检索（引用忠实度）、运维（启动+预热+恢复+隐私）。</p>
+    <p>创建一个<strong>30-100 个代表性提示</strong>的评估集。然后比模型。</p>
+    <blockquote>不要让排行榜替你做本地堆栈选择。</blockquote>
+  </div>
+</details>
+
+<details>
+<summary>⚖️ 开放权重 ≠ 开源</summary>
+  <div class="warning">
+    <p>2026 年"开放模型"一词常被草率使用。区分这些：</p>
+    <ul>
+      <li><strong>开放权重</strong>：可以下载权重。不自动意味着可商用/可修改/可训练输出</li>
+      <li><strong>源可用</strong>：代码或权重可见。不一定是开源许可证</li>
+      <li><strong>开源 AI</strong> (OSI 定义)：架构+参数+推理代码+数据信息。要求高得多</li>
+    </ul>
+    <p>有些许可证看似允许但含限制：无竞争使用、无产出训练、无超规模部署、地理排除、归属要求、专利条款。</p>
+    <div class="critical">规则：商用任何模型前，阅读模型卡和许可证。</div>
+  </div>
+</details>
+
+<!-- ===== 结语 ===== -->
+<h2>💡 结语</h2>
+<div class="card info">
+  <p style="font-size:1.1em;"><strong>本地 LLM 主要是内存数学 + 格式化 + 评估。</strong></p>
+  <p>生态系统包括紧凑边缘模型、7B-32B 消费级、大型 MoE 开放权重、多模态、长上下文、推理模型和成熟运行时。</p>
+  <p>但基本原理没有变：模型一次预测一个 token，token 不是单词，权重不是整个模型，聊天模板很重要，KV 缓存是隐藏的内存账单，量化是权衡，长上下文不是免费的，RAG 质量取决于检索，微调需要评估，本地隐私仍然需要安全纪律。</p>
+  <blockquote>你不需要神话来很好地运行本地模型。你需要知道内存中适合什么、模型期望哪个模板、运行时的行为方式、以及你的平均值是否符合你关心的工作。</blockquote>
+</div>
+
+<script>document.getElementById('date').textContent = new Date().toLocaleString('zh-CN');</script>
+</body>
+</html>
