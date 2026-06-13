@@ -1,0 +1,1527 @@
+<!doctype html>
+<html style="">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLMs 101: A Practical Guide (2026 Edition)</title>
+  
+  <style>
+
+/* ===== Greyhound-HTML Theme: dark ===== */
+body { color: #3f3f3f; }
+.container { color: #3f3f3f; }
+
+p { margin: 1.5em 8px; letter-spacing: 0.1em; color: #3f3f3f; }
+p:first-child { margin-top: 0 !important; }
+
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.5em; color: #1a202c; font-weight: 600; line-height: 1.3; }
+h1 { font-size: 1.8em; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; }
+h3 { font-size: 1.25em; }
+
+strong { color: #58a6ff; font-weight: bold; }
+a { color: #58a6ff; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+ul, ol { padding-left: 2em; margin: 0.8em 0; }
+li { margin: 0.3em 0; }
+
+blockquote {
+  border-left: 4px solid #58a6ff;
+  margin: 1em 0; padding: 0.5em 1em;
+  background: #f7fafc; color: #4a5568;
+}
+
+pre {
+  background: #1a202c; color: #e2e8f0;
+  padding: 16px; border-radius: 8px;
+  overflow-x: auto; font-size: 0.85em; line-height: 1.5;
+  margin: 1em 0;
+}
+code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+p > code, li > code {
+  background: #edf2f7; padding: 2px 6px; border-radius: 4px;
+  font-size: 0.9em; color: #2d3748;
+}
+pre code { background: transparent; padding: 0; color: inherit; }
+
+table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+th, td { padding: 10px 12px; border: 1px solid #e2e8f0; }
+th { background: #f7fafc; font-weight: 600; }
+
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
+img { max-width: 100%; height: auto; border-radius: 6px; margin: 1em 0; }
+
+pre.mermaid { background: transparent; text-align: center; padding: 0; }
+pre.mermaid img { display: block; margin: 0 auto; }
+
+@media (max-width: 600px) {
+  body { padding: 16px; }
+  table { font-size: 0.85em; }
+}
+
+  </style>
+</head>
+<body style="padding: 24px; background: #ffffff; max-width: 860px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.75; text-align: left">
+  <div id="output">
+    <section class="container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.75; text-align: left">
+      <p>Start with the loop. Text becomes tokens. Tokens move through a Transformer. Attention decides which earlier tokens matter. The runtime keeps a KV cache so the model does not recompute the whole conversation every time. Then the model picks the next token and does it again.</p>
+<blockquote>
+<p>A practical guide to how LLMs work, how models think 1 token at a time, and how to run them locally.</p>
+</blockquote>
+<p>Once that loop clicks, the hardware and software choices become easier to reason about. VRAM, quantization, context length, chat templates, decoding, RAG, serving engines, and model selection all fall out of the same mechanics.</p>
+<blockquote>
+<p>Start with the loop: Tokens in, probabilities out, one next token at a time.Weights tell the model what patterns it learned. Context tells it what it is looking at now. The KV cache is the working memory that keeps the loop usable.Hardware, runtimes, and model selection only make sense after you understand the memory, context, and formatting rules the model is obeying.</p>
+</blockquote>
+<p>The goal is to make local LLM mechanics intuitive first, then give you a practical path into hardware, runtimes, serving, and current LLM research as of May 21, 2026.</p>
+<h2></h2>
+<p>Focus</p>
+<p>This is a model-first guide. It starts with the mechanics: inference, tokens, Transformers, attention, KV cache, prefill, decode, decoding controls, model packages, chat templates, model types, long context, RAG, agents, fine-tuning, and multimodal models.</p>
+<p>After that, it moves into the local deployment layer: what local really means, quantization, VRAM math, hardware tiers, runtime choices, serving modes, licenses, model selection, privacy, troubleshooting, benchmarks, setup paths, and practical use cases.</p>
+<p>That order matters. You should understand why a long prompt costs memory before choosing a GPU. You should understand why chat templates matter before judging a model. You should understand whydecode is sequential before caring about tokens per second.</p>
+<p>For the deeper hardware and software path, I have a three-part series teaching self-hosted LLMs / local AI:</p>
+<ul>
+<li><p>Part 1:</p>
+<p>  <a href="https://x.com/TheAhmadOsman/status/2040103488714068245">GPU Memory Math for LLMs (2026 Edition)</a></p>
+<p>  .</p>
+</li>
+<li><p>Part 2:</p>
+<p>  <a href="https://x.com/TheAhmadOsman/status/2041331757329285589">Memory Bandwidth for Local AI Hardware (2026 Edition)</a></p>
+<p>  .</p>
+</li>
+<li><p>Part 3:</p>
+<p>  <a href="https://x.com/TheAhmadOsman/status/2057183854444843202">Inference Engines for LLMs &amp; Local AI Hardware (2026 Edition)</a></p>
+<p>  .</p>
+</li>
+</ul>
+<p>The first two pieces explain the hardware capacity and bandwidth math. The third explains the software layer that turns that hardware into usable inference. This article gives you the model-side foundation first, then points back to those deployment layers once the mechanics are clear.</p>
+<h2></h2>
+<p>What An LLM Actually Does</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586295992369152">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586295992369152</a>)</p>
+<p>Running a model is called inference. For a standard decoder-only LLM, inference is the same loop repeated over and over:</p>
+<ol>
+<li><p>Convert your text into tokens.</p>
+</li>
+<li><p>Feed those tokens into the model.</p>
+</li>
+<li><p>Compute scores for every possible next token.</p>
+</li>
+<li><p>Choose one token with a decoding policy.</p>
+</li>
+<li><p>Append that token to the sequence.</p>
+</li>
+<li><p>Repeat until the model stops, the user stops it, or a token limit is reached.</p>
+</li>
+</ol>
+<p>The model is not writing a whole answer in one shot. It is generating one token at a time. Every new token becomes part of the sequence that influences the next token.</p>
+<p>Mathematically, the model is a learned function:</p>
+<blockquote>
+<p>f(theta, sequence) -&gt; probability distribution over next_token</p>
+</blockquote>
+<p>Where:</p>
+<ul>
+<li><p>theta means the model weights.</p>
+</li>
+<li><p>sequence means the prompt plus generated tokens so far.</p>
+</li>
+<li><p>Logits are the raw scores before softmax.</p>
+</li>
+<li><p>Probabilities are the normalized scores after softmax.</p>
+</li>
+<li><p>Decoding turns those probabilities into one selected token.</p>
+</li>
+</ul>
+<p>This is why local generation speed is measured in tokens per second. Your system repeatedly runs a forward pass, picks or samples a token, updates the KV cache, and continues.</p>
+<p>Perception matters here. A long prefill means a long pause before the first word appears. Slow decodemeans the answer streams slowly. Local builders often obsess over decode speed because it is what users feel, but prefill time is what hurts when you paste a 10K-token document.</p>
+<h2></h2>
+<p>Tokens</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586520370929664">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586520370929664</a>)</p>
+<p>LLMs do not see raw text as words. They see tokens: Small chunks of text represented internally as integer IDs.</p>
+<p>A token might be:</p>
+<ul>
+<li><p>A whole word: &quot;hello&quot;</p>
+</li>
+<li><p>A word fragment: &quot;inter&quot;, &quot;national&quot;, &quot;ization&quot;</p>
+</li>
+<li><p>A punctuation mark</p>
+</li>
+<li><p>A whitespace-prefixed string</p>
+</li>
+<li><p>A byte-level fallback</p>
+</li>
+<li><p>A special control marker such as &lt;|user|&gt;, &lt;|assistant|&gt;, , or</p>
+</li>
+</ul>
+<p>The tokenizer maps text to token IDs and token IDs back to text. Common tokenizer families include BPE-style tokenizers and SentencePiece-style tokenizers. Different model families use different tokenizers, and that matters. A 4,000-word document may be 5,000 tokens in one tokenizer and 7,500 tokens in another.</p>
+<p>Vocabulary size matters too. A tokenizer with a larger vocabulary can compress some text into fewer tokens, but it also changes embedding and output-projection size. This is one reason tokens per second is not perfectly comparable across model families.</p>
+<p>Tokens matter because they determine:</p>
+<ul>
+<li><p>How much text fits in the context window.</p>
+</li>
+<li><p>How large the KV cache becomes.</p>
+</li>
+<li><p>How much latency you pay during prompt processing.</p>
+</li>
+<li><p>Whether multilingual or code-heavy text is efficient.</p>
+</li>
+<li><p>Whether the model sees special chat markers correctly.</p>
+</li>
+</ul>
+<p>A model&#39;s context window is the maximum number of tokens it can attend to at once. In 2026, common local-capable models range from 8K and 32K contexts to 128K, 256K, and even 1M-token contexts in server-class systems.</p>
+<p>But supported context length is not the same as cheap, fast, or equally accurate context. A model that can technically handle 128K tokens may slow to a crawl at 64K and lose coherence at 100K. Always test the context lengths you actually plan to use.</p>
+<p>Tokens are the unit of work. Once you understand that, long context stops looking magical and starts looking like a bill you can estimate.</p>
+<p>Helpful Exercise: Try my</p>
+<p><a href="https://ahmadosman.com/tokenizer">Tokenizer demo app</a></p>
+<p>to see how text gets broken into tokens in real time.</p>
+<h2></h2>
+<p>Transformers</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586563513516033">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586563513516033</a>)</p>
+<p>Most modern LLMs are based on the Transformer architecture. Most local chat LLMs are decoder-only Transformers: They predict the next token while looking back at previous tokens.</p>
+<p>Everything above this point, including tokens, weights, config, and chat templates, is setup for the real engine underneath. The Transformer is the skeleton that moves the numbers around.</p>
+<p>A simplified Transformer layer contains:</p>
+<ol>
+<li><p>Token embeddings: Token IDs become vectors.</p>
+</li>
+<li><p>Positional information: The model needs token order. Many modern LLMs use RoPE (Rotary Position Embeddings), which encodes position by rotating representations.</p>
+</li>
+<li><p>Self-attention: Each token representation looks back at prior token representations and decides what matters.</p>
+</li>
+<li><p>MLP / feed-forward block: A dense nonlinear computation that expands and compresses representations. A large fraction of parameters live here.</p>
+</li>
+<li><p>Layer normalization and residual connections: These stabilize deep networks and help information flow through many layers.</p>
+</li>
+<li><p>Output projection: The final hidden state becomes logits over the vocabulary.</p>
+</li>
+</ol>
+<p>Stack this recipe dozens or hundreds of times and you get a language model.</p>
+<p>Transformer recap: Tokens become vectors, attention connects the sequence, MLPs reshape the representation, RoPE keeps position straight, and the final projection turns the last hidden state into next-token logits.</p>
+<h2></h2>
+<p>Attention</p>
+<p>Attention is how a token decides which earlier tokens matter for the next prediction. It is also one of the reasons local inference is so memory-sensitive.</p>
+<p>Classic MHA (multi-head attention) stores separate key/value state for many heads. It gives the model flexibility, but it makes the KV cache large.</p>
+<p>Modern local models often use more efficient attention designs:</p>
+<ul>
+<li><p>MQA: Multiple query heads share one key/value head. It is memory-efficient, but can be less expressive.</p>
+</li>
+<li><p>GQA: Groups of query heads share key/value heads. It is the common middle ground in many current local models.</p>
+</li>
+<li><p>MHA: Full multi-head attention. It can be strong, but long context gets expensive quickly.</p>
+</li>
+</ul>
+<p>Modern kernels such as FlashAttention and SDPA-style implementations reduce attention memory traffic and keep the GPU busier. A runtime with good attention kernels can be dramatically faster than one without, even on the same model and hardware.</p>
+<p>This is why two 7B models can behave very differently at long context. Parameter count is not the whole story. A 7B MHA model at 128K context can exhaust a 24 GB GPU, while a 7B GQA model with the same advertised context may fit with room to spare.</p>
+<p>When comparing models, look at attention type, KV heads, context length, and runtime support, not just parameter count.</p>
+<h2></h2>
+<p>KV Cache</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586637371002880">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586637371002880</a>)</p>
+<p>The KV cache is the model&#39;s working memory during generation. It stores key/value attention states for previous tokens so the model does not recompute the entire history from scratch on every generated token.</p>
+<p>Without a KV cache, generation would be brutally inefficient. With a KV cache, generation is usable, but the cache consumes memory proportional to:</p>
+<blockquote>
+<p>tokens x layers x kv_heads x head_dim x precision x 2</p>
+</blockquote>
+<p>The x 2 is for keys and values.</p>
+<p>A useful rule of thumb for older Llama-like 7B MHA models is roughly 0.5 MiB per token in FP16 KV cache. That means 4K tokens can cost around 2 GiB just for KV cache. At 32K tokens, you may be looking at 16 GiB of KV cache alone.</p>
+<p>Newer GQA/MQA models reduce this substantially. Some runtimes also support FP8 or INT8 KV cache. That is often the practical compression floor I would recommend for local users in 2026.</p>
+<p>Do not treat sub-8-bit KV cache as a default. Research systems such as</p>
+<p><a href="https://arxiv.org/abs/2402.02750">KIVI</a></p>
+<p>,</p>
+<p><a href="https://arxiv.org/abs/2401.18079">KVQuant</a></p>
+<p>, and newer compressed-cache kernels show that 2-bit to 4-bit KV can work with careful algorithms, calibration, and custom kernels. That is not the same as casually flipping a Q4 KV toggle in a desktop runtime. Below 8-bit, benchmark hard, especially for coding, tool calls, JSON, long-context retrieval, and tasks where exact earlier tokens matter.</p>
+<p>Also do not confuse KV-cache quantization with speculative decoding.</p>
+<p><a href="https://arxiv.org/abs/2602.06036">DFlash</a></p>
+<p>and</p>
+<p><a href="https://arxiv.org/abs/2604.12989">DDTree</a></p>
+<p>, often shortened informally to DTree, attack decode latency by drafting future tokens and verifying them. They can improve speed, but they do not erase the KV-cache memory bill.</p>
+<p>This is why a model can fit at an empty prompt but crash when you load a long document. The weights fit. The working memory did not.</p>
+<h2></h2>
+<p>Prefill And Decode</p>
+<p>LLM inference has two different performance regimes: prefill and decode.</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587953103196160">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587953103196160</a>)</p>
+<p>Prefill processes the prompt you gave the model. If you paste a 20,000-token document, the model must process those 20,000 tokens before it can produce the first answer token. Prefill is relatively parallelizable, so GPUs can handle it efficiently, but it can still be expensive.</p>
+<p>The time you spend waiting for the first token to appear is usually prefill time.</p>
+<p>Decode generates new tokens one at a time. Each generated token depends on the sequence so far, so decode is much more sequential. This is where the streaming typing effect comes from, and it is usually the phase that determines whether a model feels fast or slow.</p>
+<p>Long prompts punish prefill. Long answers punish decode. Long conversations punish both because the KV cache grows.</p>
+<p>In a chat session, every turn adds to the cache. If you let a conversation run to 16K tokens, you are paying the memory cost for all 16K tokens on every new token generated. This is why chat UIs that keep infinite history eventually slow down or crash.</p>
+<h2></h2>
+<p>Decoding</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586728093810688">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586728093810688</a>)</p>
+<p>After the model produces logits, it has not written anything yet. It has only scored every possible next token. Decoding is the policy that turns those scores into one actual token, appends that token to the context, and repeats the loop.</p>
+<p>The runtime, or</p>
+<p><a href="https://x.com/TheAhmadOsman/status/2057183854444843202">inference engine</a></p>
+<p>, can choose tokens in several ways. It can pick the highest-probability token every time. It can sample from a narrowed set of likely tokens. It can penalize repetition. It can stop at a delimiter. It can use a fixed seed so the same prompt behaves reproducibly.</p>
+<p>These choices do not change the model weights, but they change the model&#39;s voice, determinism, creativity, risk profile, and tendency to loop.</p>
+<p>The important knobs answer three practical questions:</p>
+<ul>
+<li><p>Randomness: How much variation is allowed?</p>
+</li>
+<li><p>Tail reach: How far into lower-probability tokens can the sampler go?</p>
+</li>
+<li><p>Boundaries: What prevents loops, rambling, schema breaks, or runaway output?</p>
+</li>
+</ul>
+<p>For precise work, start narrow: low temperature, short max-token limits, explicit stop sequences, and constrained decoding when output must match JSON or a schema. For creative work, give the sampler more room with higher temperature, top-p, and multiple candidates ranked afterward. For coding, keep the first pass conservative, then sample alternatives only when you are intentionally exploring.</p>
+<p>Greedy decoding is not always more accurate. It is often brittle. A greedy decoder can get stuck in loops or produce generic answers because it never explores alternatives. For evals, use deterministic settings. For ideation, let the model breathe.</p>
+<h2></h2>
+<p>What A Model Package Contains</p>
+<p>A runnable local LLM is more than one big weight file. A model package usually includes:</p>
+<ul>
+<li><p>Architecture/config: Layer count, hidden size, attention type, RoPE settings, vocabulary size, special tokens, and context length.</p>
+</li>
+<li><p>Weights: The learned parameters, often stored as safetensors, GGUF, GPTQ, AWQ, EXL2, or another runtime-specific format.</p>
+</li>
+<li><p>Tokenizer: The rules that turn text into token IDs and token IDs back into text.</p>
+</li>
+<li><p>Chat template: The exact markup for system, user, assistant, tool, and reasoning messages.</p>
+</li>
+<li><p>Generation config: Defaults for temperature, top-p, stop tokens, repetition penalties, and max tokens.</p>
+</li>
+<li><p>License and model card: The legal and operational instructions for how the model can be used.</p>
+</li>
+</ul>
+<p>The weights are the largest file, but they are not the whole model. If the tokenizer, config, or chat template is wrong, the same weights can feel broken.</p>
+<p>The package section tells you what has to travel together. The next section explains why the chat template is the part people most often break.</p>
+<h2></h2>
+<p>Chat Templates</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586803171872768">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586803171872768</a>)</p>
+<p>A chat model was trained with a specific conversation format. For example, it may expect something like:</p>
+<blockquote>
+<p>&lt;|system|&gt; You are a helpful assistant. &lt;|user|&gt; Explain KV cache. &lt;|assistant|&gt;</p>
+</blockquote>
+<p>Another model may expect:</p>
+<blockquote>
+<p>[BOS] [INST] Explain KV cache. [/INST]</p>
+</blockquote>
+<p>Another may use ChatML-style markers. Another may require special reasoning tokens. Another may need tool-call XML or JSON wrappers.</p>
+<p>Using the wrong format can cause gibberish, role confusion, ignored system prompts, repeated prompts, refusal weirdness, broken tool calls, bad benchmark results, and conclusions that the model is dumb when the template is the actual bug.</p>
+<p>Best practice:</p>
+<ul>
+<li><p>Use the tokenizer&#39;s apply_chat_template when using Transformers.</p>
+</li>
+<li><p>Use model-specific templates in Harbor-backed frontends, llama.cpp, LM Studio, vLLM, or SGLang.</p>
+</li>
+<li><p>Check whether the model is base, instruct, chat, reasoning, or tool-tuned.</p>
+</li>
+<li><p>Ensure BOS/EOS tokens are correct.</p>
+</li>
+<li><p>Keep system prompts short unless they need to be long.</p>
+</li>
+<li><p>For tool use, follow the exact schema expected by the model/runtime.</p>
+</li>
+</ul>
+<p>If you are building an application that lets users switch models, you need template switching too. Hardcoding one template format and then loading a model that expects another is a common source of bad local-model evals.</p>
+<p>Treat the template like an API contract. If you get it wrong, you are not really testing the model you think you are testing.</p>
+<h2></h2>
+<p>Model Types</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586851800641536">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586851800641536</a>)</p>
+<p>Not all LLMs are tuned for the same behavior.</p>
+<p>For most users, the default starting point should be a recent instruct/chat-tuned model in a size that fits comfortably in memory.</p>
+<p>Do not start with a base model unless you know why. Base models complete your prompt rather than answer it. They are useful for researchers, fine-tuners, and people building custom pipelines. They are frustrating for everyone else.</p>
+<p>If you ask a base model What is the capital of France?, it might continue with and what is the population of Paris? instead of answering Paris.</p>
+<p>The practical split is simple:</p>
+<ul>
+<li><p>Base model: Good for pretraining research, fine-tuning, and custom pipelines.</p>
+</li>
+<li><p>Instruct model: Good for direct instruction following.</p>
+</li>
+<li><p>Chat model: Good for multi-turn dialogue with role formatting.</p>
+</li>
+<li><p>Reasoning model: Good when the task benefits from extra thinking tokens and verification.</p>
+</li>
+<li><p>Tool-tuned model: Good when structured calls, JSON, or function use matters.</p>
+</li>
+</ul>
+<h2></h2>
+<p>What Local Really Means</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586889121570816">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586889121570816</a>)</p>
+<p>A local LLM is a model whose weights and inference runtime are under your control. You decide what model runs, how it runs, what data it sees, and what happens to the outputs.</p>
+<p>That freedom comes with work. You are now the ops team. You handle downloads, updates, compatibility, memory limits, and security. When something breaks, there is no support ticket to file. There is only you, the logs, and the documentation.</p>
+<p>Local can mean:</p>
+<ul>
+<li><p>A 2B parameter model running on a phone.</p>
+</li>
+<li><p>A 7B to 14B model running on a consumer GPU.</p>
+</li>
+<li><p>A 30B to 70B model running on a high-end workstation.</p>
+</li>
+<li><p>A sparse MoE model running on one or more datacenter GPUs.</p>
+</li>
+<li><p>A private deployment using vLLM, SGLang, TensorRT-LLM, llama.cpp, Harbor, LM Studio, or a custom PyTorch stack.</p>
+</li>
+</ul>
+<p>The key point: local does not automatically mean offline, private, safe, cheap, or opensource. It only means you are running the model yourself. A local app can still phone home. A model can be open-weight but not opensource. A model can be local but unsafe to load. A quantized model can fit in memory but answer poorly.</p>
+<p>The tradeoff is worth it when you need privacy, low latency, custom behavior, offline operation, or cost control at scale. It is not worth it when you need the absolute best model quality and do not have the hardware to match. In that case, a hosted API is the right tool.</p>
+<p>Local LLMs are practical when you understand one equation:</p>
+<blockquote>
+<p>Local LLM success = model fit + correct prompt format + good runtime + realistic evals.</p>
+</blockquote>
+<p>Everything else is details. The details matter.</p>
+<h2></h2>
+<p>Quantization</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586936164802560">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586936164802560</a>)</p>
+<p>Quantization stores weights in lower precision to reduce memory and sometimes improve throughput.</p>
+<p>The 2026 rule of thumb for local users:</p>
+<ul>
+<li><p>FP16/BF16: Best quality when memory is abundant. Use it as a baseline for evaluation.</p>
+</li>
+<li><p>Q8 / INT8: Near-lossless for many tasks, but still large. Good when you have VRAM and want minimal quality loss.</p>
+</li>
+<li><p>Q6 / Q5: Excellent quality with moderate savings. This is a strong middle ground.</p>
+</li>
+<li><p>Q4: The default consumer sweet spot for many chat and document workflows.</p>
+</li>
+<li><p>Q3 / Q2: Only when you must fit a bigger model. Math, code, structured output, and tool use degrade first.</p>
+</li>
+</ul>
+<p>Weight quantization is not the same as KV-cache quantization. Weight quantization shrinks the model. KV-cache quantization shrinks the live context memory.</p>
+<p>For KV cache, treat FP16/BF16 as the clean baseline and FP8/INT8 as the practical local compression floor. Below 8-bit is research-heavy and workload-sensitive. Use it only after measuring quality on your actual prompts.</p>
+<p>Quantization failure shows up first in math, multi-step reasoning, code correctness, tool-use reliability, JSON/schema adherence, subtle instruction following, and long-context retrieval.</p>
+<p>A smaller model at higher precision can beat a larger model crushed into too few bits. Do not worship parameter count. A 7B model at Q6 can beat a 13B model at Q2 on reasoning tasks while using less memory and running faster.</p>
+<h2></h2>
+<p>File Formats And Load Safety</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586972449783808">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586972449783808</a>)</p>
+<p>safetensors is a safe tensor serialization format designed to store tensors without Python pickle behavior. Use safetensors when possible, especially for PyTorch/Transformers models.</p>
+<p>Avoid random .bin files from untrusted sources. PyTorch pickle-based loading can execute arbitrary code during deserialization. Local AI security rule number one: do not let a stranger&#39;s model file become a stranger&#39;s code execution.</p>
+<p>GGUF is the llama.cpp ecosystem&#39;s binary model format. Use GGUF when you want llama.cpp, CPU inference, Apple Silicon inference, simple local servers, portable quantized models, or desktop tools like LM Studio.</p>
+<p>ONNX is useful for standardized deployment and hardware-specific acceleration, especially outside the usual PyTorch stack. If you are deploying to Intel NPUs, ARM devices, or custom accelerators, ONNX is often the path of least resistance.</p>
+<p>TensorRT-LLM is NVIDIA&#39;s high-performance inference path for production GPU deployments. It is powerful, but more complex than llama.cpp or Harbor. You typically convert a checkpoint to TensorRT engines, which takes time and GPU memory, but yields excellent throughput once built.</p>
+<p>EXL2 / GPTQ / AWQ formats are common in GPU-focused local inference communities, especially for squeezing larger models onto single GPUs.</p>
+<p>The file format choice is not cosmetic. It determines which runtimes can load the model, what quantization you can use, and how fast it runs.</p>
+<h2></h2>
+<p>Runtimes And Serving Modes</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587011200892928">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587011200892928</a>)</p>
+<p>A runtime is the software that loads the model and performs inference. In 2026, the local LLM runtime ecosystem is mature, useful, and fragmented.</p>
+<p>For a single person experimenting locally, start with</p>
+<p><a href="https://github.com/av/harbor">Harbor</a></p>
+<p>, LM Studio, or llama.cpp. Harbor is the best fit when you want a complete local stack with frontends, backends, and supporting services wired together. LM Studio is the easiest desktop-first path. llama.cpp is the portable low-level workhorse.</p>
+<p>For a team or private service, look at vLLM or SGLang. For maximum NVIDIA production performance, investigate TensorRT-LLM. For browser or mobile deployment, look at MLC or WebLLM.</p>
+<p>The runtime choice often locks you into a format ecosystem. llama.cpp means GGUF. vLLM and SGLang usually mean safetensors or Hugging Face checkpoints. TensorRT-LLM means ONNX or optimized engines. Pick the runtime first, then find models in the right format.</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587056193236992">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587056193236992</a>)</p>
+<p>There are three practical serving modes.</p>
+<p>Single-user local means a desktop app, CLI stack, or command-line server for one person. Harbor, LM Studio, llama.cpp server, ExLlama/TabbyAPI, and small Transformers scripts all fit here. The goal is quick iteration: Compare behavior, speed, memory use, and prompt formats without building an ops platform.</p>
+<p>Team or private API means an OpenAI-compatible endpoint on a workstation or server. vLLM, SGLang, TensorRT-LLM, and llama.cpp server all show up here depending on model size and throughput needs. Once multiple people or jobs share a model, you need monitoring, prompt/version management, routing, and realistic latency measurements.</p>
+<p>Production serving is a different job. Now the conversation includes continuous batching, prefix caching, speculative decoding, paged attention, tensor parallelism, pipeline parallelism, quantized serving, structured outputs, load balancing, GPU utilization, latency percentiles, prompt caching, admission control, logging, failover, privacy, and cost controls.</p>
+<p>At production scale, can I load the model? is the easy question. The hard question is can I serve it reliably under real traffic?</p>
+<h2></h2>
+<p>VRAM Math For Local Models</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587105132318720">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587105132318720</a>)</p>
+<p>There are three main memory consumers:</p>
+<ol>
+<li><p>Model weights</p>
+</li>
+<li><p>KV cache</p>
+</li>
+<li><p>Runtime overhead</p>
+</li>
+</ol>
+<p>The rough weight memory formula is:</p>
+<blockquote>
+<p>weight_memory ~= parameters x bytes_per_parameter</p>
+</blockquote>
+<p>Useful approximations:</p>
+<ul>
+<li><p>FP16/BF16: About 2 bytes per parameter.</p>
+</li>
+<li><p>INT8/Q8: About 1 byte per parameter.</p>
+</li>
+<li><p>Q4: About 0.5 bytes per parameter, plus format overhead.</p>
+</li>
+</ul>
+<p>Then add:</p>
+<ul>
+<li><p>Runtime overhead: Framework buffers, CUDA overhead, memory fragmentation, and temporary tensors.</p>
+</li>
+<li><p>KV cache: Grows with every token in the active context.</p>
+</li>
+<li><p>Batch/concurrency memory: Each concurrent request needs its own cache.</p>
+</li>
+<li><p>Vision encoder memory: Images become tokens too.</p>
+</li>
+<li><p>Speculative decoding memory: Draft models, draft heads, or extra verification structures are not free.</p>
+</li>
+<li><p>Adapter memory: LoRA adapters are small, but still real.</p>
+</li>
+</ul>
+<p>MoE models add one more wrinkle. A model may activate only a fraction of its parameters per token, but the inactive experts usually still need to live somewhere in memory. Active parameters affect compute cost. Total parameters still affect loading and capacity planning.</p>
+<p>A realistic estimate looks like:</p>
+<blockquote>
+<p>total_memory = quantized_weightsKV_cache_for_context runtime_overhead batch_or_concurrency_overhead safety_margin</p>
+</blockquote>
+<p>Here is the trap: A 13B model in Q4 may fit easily at 8K context, then fail at 32K because the KV cache quadrupled. The weights did not change. The context did.</p>
+<p>Leave 10 to 20 percent headroom. Running at 99 percent VRAM utilization is begging for out-of-memory errors and fragmentation failures.</p>
+<h2></h2>
+<p>Hardware Tiers In Practice</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587158437838848">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587158437838848</a>)</p>
+<p>These are practical 2026 rules of thumb, assuming quantized inference and sane context lengths. Exact results depend on runtime, quantization, model architecture, attention type, context length, and OS/driver overhead.</p>
+<p>For most serious local users in 2026, 16 GB is the minimum comfortable GPU tier, 24 GB is the best value enthusiast tier, and 48 GB+ is where the stronger local world opens up.</p>
+<p>Performance depends on memory bandwidth, GPU FLOPs, VRAM capacity, KV-cache size, attention implementation, quantization, batch size, prompt length, generated length, and runtime maturity.</p>
+<p>Decode is often memory-bandwidth-bound: The GPU streams weights repeatedly while doing relatively little compute per byte. Prefill is more compute-bound because it can process the prompt in parallel. That is why two cards with the same VRAM capacity can have very different token speeds if one has much higher memory bandwidth.</p>
+<p>The most painful local setup is one where the model almost fits and spills layers to CPU. It may technically run, but token speed can collapse. CPU offload is acceptable for experimentation. It is not a performance strategy.</p>
+<h2></h2>
+<p>Choose A Model That Fits</p>
+<p>The practical question is not what is the best model? It is what is the smallest model that wins your real workload on your hardware?</p>
+<p>Start with a recent instruct/chat model that fits comfortably with the context length you actually need. If you are on 8 GB to 12 GB of VRAM or unified memory, start small. If you are on 16 GB to 24 GB, test 7B to 14B class models first. If you have 48 GB or more, larger dense models and MoE models become realistic.</p>
+<p>Use this memory gate before you fall in love with a checkpoint:</p>
+<blockquote>
+<p>weights + KV cache + runtime overhead &lt;= 80 to 90 percent of available memory</p>
+</blockquote>
+<p>Then run the same 20 to 50 prompts across candidates. Include your real tasks: Coding edits, document Q&amp;A, JSON output, summaries, tool calls, long context, or whatever you actually need. Measure answer quality, latency, memory use, template reliability, and failure modes.</p>
+<p>A practical model choice usually comes down to five checks:</p>
+<ul>
+<li><p>Task fit: Chat, coding, documents, agents, multimodal, edge, or fine-tuning.</p>
+</li>
+<li><p>Memory fit: Weights, KV cache, runtime overhead, and safety margin.</p>
+</li>
+<li><p>Interface fit: Tokenizer, chat template, stop tokens, tool schema, and reasoning mode.</p>
+</li>
+<li><p>Runtime fit: Does your runtime support this architecture, quantization, context length, and serving mode well?</p>
+</li>
+<li><p>License fit: Can you actually use it where you plan to use it?</p>
+</li>
+</ul>
+<p>Leaderboards are useful for discovery. They are not a substitute for your own evals. Your workload is the benchmark that matters.</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587247877115904">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587247877115904</a>)</p>
+<p>For a simple local assistant, pick a recent 7B to 14B instruct model, Q4/Q5 quantization, the correct chat template, 8K to 32K context, and Harbor, LM Studio, or llama.cpp. Prioritize responsiveness over giant size.</p>
+<p>For a local coding assistant, pick a code-capable 14B to 32B model if you have enough VRAM. Use low temperature, repository retrieval, test execution, and a patch-based workflow. A code model without tools is half a product.</p>
+<p>For a private document assistant, pick a strong instruct model, a local embedding model, a reranker, a RAG pipeline, citation enforcement, and moderate-to-long context. Do not paste a 200-page PDF and hope.</p>
+<p>For a reasoning setup, pick a reasoning-tuned model, budget extra tokens, use low-to-medium temperature, add verification, and use tools for math, code, or search. Reasoning models spend more tokens. Budget accordingly.</p>
+<p>For a low-resource setup, pick a 1B to 4B model, Q4/Q5, short prompts, structured tasks, retrieval or tools, and a tight output schema. Small models become useful when the task is constrained.</p>
+<h2></h2>
+<p>What Controls Speed</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587312385548288">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587312385548288</a>)</p>
+<p>Tokens per second is not controlled by one thing. It is the result of model size, memory bandwidth, compute, attention kernels, context length, quantization, batching, and runtime quality.</p>
+<p>The main levers are:</p>
+<ul>
+<li><p>Memory bandwidth: Decode often streams model weights repeatedly, so bandwidth dominates single-user token speed.</p>
+</li>
+<li><p>GPU FLOPs: Prefill and large batches use more parallel compute, so FLOPs matter more there.</p>
+</li>
+<li><p>VRAM capacity: If the model or KV cache spills to CPU, performance can collapse.</p>
+</li>
+<li><p>Attention implementation: FlashAttention, SDPA, paged attention, and runtime-specific kernels change both speed and memory behavior.</p>
+</li>
+<li><p>Quantization: Smaller weights reduce memory movement, but aggressive quantization can hurt quality and sometimes add dequantization overhead.</p>
+</li>
+<li><p>Batch size and concurrency: Batching improves throughput, but each active sequence needs KV cache.</p>
+</li>
+<li><p>Prompt length: Long prompts increase prefill time.</p>
+</li>
+<li><p>Generated length: Long answers expose decode speed.</p>
+</li>
+<li><p>Speculative decoding: EAGLE-style methods, MTP, DFlash, and DDTree can verify more than one drafted token per target pass when supported.</p>
+</li>
+</ul>
+<p>The painful setup is the almost-fit setup. A model that spills layers or cache to CPU may technically run, but token speed can drop from usable to miserable.</p>
+<p>Benchmark the exact runtime, quantization, context length, prompt shape, and workload you plan to use. A BF16 leaderboard number does not tell you what your Q4 local stack will feel like.</p>
+<h2></h2>
+<p>Long Context</p>
+<p>Long context sounds magical: 128K, 256K, or even 1M tokens in one prompt. It is useful, but it has real costs.</p>
+<p>More context means more KV cache memory, slower prompt processing, more attention work, harder evaluation, and more ways for irrelevant text to distract the model. Quality can also decay across distance. A model may handle the end of a long document well while missing critical details buried near the beginning.</p>
+<p>Use long context for whole-document analysis, codebase slices, legal or technical review, transcript summarization, multi-file reasoning, and RAG fallback when retrieval misses context.</p>
+<p>Do not treat long context as a replacement for retrieval. It is a complement. Use RAG for large corpora and long context for the final selected evidence.</p>
+<p>Practical habits help:</p>
+<ul>
+<li><p>Put critical instructions near the beginning and near the end.</p>
+</li>
+<li><p>Use section headers and delimiters.</p>
+</li>
+<li><p>Ask for citations tied to source chunks.</p>
+</li>
+<li><p>Compress irrelevant history.</p>
+</li>
+<li><p>Use summary memory instead of infinite chat history.</p>
+</li>
+</ul>
+<p>Think of long context as expensive attention, not a free notebook.</p>
+<h2></h2>
+<p>Multimodality</p>
+<p>Multimodal local models accept images, and sometimes audio or video, in addition to text. Modern open-weight ecosystems increasingly include these models.</p>
+<p>The hidden cost is that non-text input becomes tokens too. Vision encoders add memory. Image patches consume context. Audio and video can explode the input budget. Multimodal templates are also easier to get wrong than text-only templates.</p>
+<p>A single high-resolution image can consume thousands of tokens in the context window. If you are running a multimodal model locally, count image tokens the same way you count text tokens. They come from the same budget.</p>
+<p>Small VLMs can hallucinate visual details. OCR reliability varies. Charts and tables are still hard. For serious document or image workflows, evaluate with real samples. Do not trust a demo of a simple photo to prove invoice extraction quality.</p>
+<h2></h2>
+<p>The 2026 Local Model Scene</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587487002828801">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587487002828801</a>)</p>
+<p>The model scene changes fast. As of May 21, 2026, local LLM users should think in terms of families and ecosystems, not one best model.</p>
+<p>Qwen 3.5 / Qwen 3.6 is a major open-weight family because it covers the whole stack: Small models for laptops, dense mid-size models for workstations, MoE models for multi-GPU serving, FP8 variants, long context, multilingual work, coding, tools, and agentic workflows. The practical takeaway is simple: Qwen is a strong default family when you want one ecosystem that spans laptop experiments and serious local serving.</p>
+<p>Gemma 4 matters because Google DeepMind is pushing the family toward useful local deployment: Efficient edge models, larger dense and MoE options, multimodality, long context on the larger models, broad language support, stronger coding/agent behavior, and Apache 2.0 licensing. That combination makes it worth testing when commercial use and device-side deployment matter.</p>
+<p>Kimi / Moonshot AI, GLM /</p>
+<p><a href="https://z.ai/">Z.ai</a></p>
+<p>, DeepSeek, MiniMax, and Mistral are also core families to track. Kimi is relevant for long-horizon coding, multimodal reasoning, tool use, and agent workflows. GLM is important for coding agents, long-horizon tasks, MoE systems, and deployment-oriented model releases. DeepSeek remains influential because of large MoE systems, Multi-head Latent Attention, DeepSeekMoE, FP8 serving paths, sparse attention, and high-throughput self-hosting. MiniMax is worth watching for practical agent workloads and inference-efficient MoE models. Mistral still matters because its lineup covers generalist, coding, reasoning, multimodal, and specialist use cases with strong deployment support.</p>
+<p>Nemotron 3 is NVIDIA&#39;s open model family for production-grade agent systems on NVIDIA hardware. The family includes Nano, Super, and Ultra sizes, uses hybrid Mamba-Transformer MoE designs, and is tied closely to TensorRT-LLM, NIM, Dynamo, Blackwell NVFP4/FP8 paths, and enterprise agent deployment. Treat it less like a casual desktop-chat family and more like a signal for where NVIDIA wants open-weight serving stacks to go.</p>
+<p>Open-weight AI is no longer just Llama vs. everything else. You are choosing an ecosystem: Weights, license, tokenizer, template, quantizations, runtime support, serving path, community tools, and failure modes.</p>
+<p>The Qwen 27B Dense Model</p>
+<p>Qwen 3.5 / 3.6 27B (Dense) is one of the most practical public-weight options for local users who care about coding, multilingual work, tool use, thinking/non-thinking modes, and long context. The</p>
+<p><a href="https://huggingface.co/Qwen/Qwen3.5-27B">Qwen 3.5 27B</a></p>
+<p>and</p>
+<p><a href="https://huggingface.co/Qwen/Qwen3.6-27B">Qwen 3.6 27B</a></p>
+<p>model cards describe OpenAI-compatible serving paths, thinking mode defaults, tool use, and context lengths up to 262,144 tokens, with longer-context extension through YaRN in supported frameworks.</p>
+<p>Qwen is a strong default for a 2x RTX 3090 setup when the runtime is configured correctly for coding, agents, or multilingual coverage.</p>
+<p>Inference Research</p>
+<p>The 2026 frontier is not only model quality. It is also inference efficiency.</p>
+<p><a href="https://arxiv.org/abs/2309.06180">PagedAttention</a></p>
+<p>attacks KV-cache memory waste in serving. FP8 KV cache is now a practical runtime feature in systems such as</p>
+<p><a href="https://docs.vllm.ai/en/latest/features/quantization/quantized_kvcache/">vLLM</a></p>
+<p>. DFlash and DDTree explore speculative decoding with block diffusion draft models and draft trees. NVFP4 is also worth watching on NVIDIA hardware because it changes the practical deployment conversation for supported stacks.</p>
+<p>Some of this is production-ready. Some of it is still research. Some of it only matters if your runtime supports it cleanly. Do not treat paper speedups as a checkbox in a desktop app.</p>
+<h2></h2>
+<p>Failure Modes And Fixes</p>
+<p>Most local LLM failures are not mysterious. They usually come from memory fit, formatting, runtime support, decoding settings, or retrieval quality.</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588641975730176">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588641975730176</a>)</p>
+<p>Out of memory: The weights, KV cache, runtime overhead, or batch size do not fit. Use a smaller model, reduce context, lower batch/concurrency, choose a better quantization, or leave more headroom.</p>
+<p>Gibberish or role confusion: The chat template, tokenizer, BOS/EOS token, reasoning-mode switch, or tool schema is wrong. Verify the model card and runtime template before blaming model quality.</p>
+<p>Slow first token: Prefill is expensive. Shorten the prompt, use prefix caching, improve retrieval, reduce context, or use a faster runtime.</p>
+<p>Slow streaming: Decode is the bottleneck. Check memory bandwidth, quantization, CPU spill, attention backend, speculative decoding support, and whether the model is simply too large for the hardware.</p>
+<p>Bad document answers: Retrieval probably failed. Inspect parsed text, chunk boundaries, metadata, top-k retrieval, reranking, and citation grounding.</p>
+<p>Bad JSON or tool calls: Use lower temperature, constrained decoding, stricter schemas, better examples, and a model tuned for tool use.</p>
+<p>Repeating loops: Reduce temperature or top-p, add repetition penalties, check stop tokens, and make sure the template is not causing the model to see its own answer as a new prompt.</p>
+<p>Start with the boring checks. They fix more problems than model swapping does.</p>
+<h2></h2>
+<p>How To Grow The Stack</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587583895375874">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587583895375874</a>)</p>
+<p>Beginner: Easiest Useful Setup</p>
+<p>Use Harbor or LM Studio, a recent 4B to 9B instruct model, Q4 quantization, 8K to 32K context, and a built-in chat UI. Download two or three models in the same size class and compare them on the same prompts.</p>
+<p>Goal: Learn prompting, compare models, understand speed and memory, and avoid custom code at first.</p>
+<p>Intermediate: Developer Setup</p>
+<p>Use llama.cpp or Transformers, GGUF or safetensors, an OpenAI-compatible local server, a simple RAG pipeline, and a small eval set. Call your local server from a real application or script instead of only using a chat UI.</p>
+<p>Goal: Build local apps, test retrieval, measure quality, and serve from localhost.</p>
+<p>Advanced: Private Serving Setup</p>
+<p>Use vLLM or SGLang, one or more GPUs, an OpenAI-compatible API, monitoring, prompt/version management, an evaluation suite, RAG with reranking, and tool sandboxing.</p>
+<p>Goal: Serve real users or internal workflows, optimize throughput and latency, and maintain safety and observability.</p>
+<p>Expert: Custom Optimization</p>
+<p>Use TensorRT-LLM, custom kernels, specialized runtimes, quantization experiments, speculative decoding, multi-GPU parallelism, fine-tuning, distillation, and production evals.</p>
+<p>Goal: Trade engineering time for inference efficiency, lower cost, and higher quality at scale.</p>
+<h2></h2>
+<p>Privacy Is Not Automatic</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587696189517824">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587696189517824</a>)</p>
+<p>Local LLMs improve privacy because prompts and outputs can remain on your hardware. But local does not automatically mean secure.</p>
+<p>Threats include malicious model files, pickle-based weight loading, untrusted trust_remote_code, prompt injection in retrieved documents, tool-call abuse, secret leakage through logs, telemetry from desktop apps, browser extensions or plugins, model hallucinations in high-stakes settings, license violations, and data contamination during fine-tuning.</p>
+<p>A workable local AI security baseline has four habits:</p>
+<ul>
+<li><p>Load carefully: Prefer safetensors or GGUF from reputable sources, avoid untrusted .bin files, and do not enable trust_remote_code casually.</p>
+</li>
+<li><p>Run with boundaries: Use an unprivileged user, containers or sandboxes for agents, and disabled network access when offline privacy matters.</p>
+</li>
+<li><p>Protect secrets: Keep credentials out of prompts and RAG indexes, review desktop app telemetry settings, and validate tool calls before execution.</p>
+</li>
+<li><p>Version what matters: Track model, prompt, adapter, runtime, and quantization versions, and log enough for debugging without creating a privacy disaster.</p>
+</li>
+</ul>
+<p>Local AI security is mostly boring operational discipline. That is also how you avoid downloading a random checkpoint, running it as root, and turning local AI into local compromise.</p>
+<h2></h2>
+<p>Benchmarks That Matter</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587732243738624">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587732243738624</a>)</p>
+<p>Benchmark the stack you will actually run. A model&#39;s BF16 leaderboard score is not your Q4 local reality.</p>
+<p>Measure quality, latency, memory, reliability, and operating fit:</p>
+<ul>
+<li><p>Quality: Correctness on your real tasks, not only generic benchmarks.</p>
+</li>
+<li><p>Latency: Time to first token, decode tokens per second, and end-to-end time.</p>
+</li>
+<li><p>Memory: Weight memory, KV-cache growth, peak VRAM, and headroom under load.</p>
+</li>
+<li><p>Formatting: Chat template correctness, JSON/schema success, tool-call reliability, and stop-token behavior.</p>
+</li>
+<li><p>Retrieval: Citation faithfulness, answer grounding, missing-evidence behavior, and reranker impact.</p>
+</li>
+<li><p>Operations: Startup time, warmup behavior, crash recovery, logging, privacy, and version tracking.</p>
+</li>
+</ul>
+<p>Create a small eval set with 30 to 100 representative prompts. Include expected answers or scoring criteria, latency and memory measurements, failure categories, RAG-specific grounding checks, JSON compliance checks if relevant, and human review for ambiguous tasks.</p>
+<p>Then compare models. Do not let a leaderboard choose your local stack for you.</p>
+<h2></h2>
+<p>Coding With Local Models</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588413524533249">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588413524533249</a>)</p>
+<p>Coding is one of the best local LLM use cases because prompts often include private code, latency matters, iteration is frequent, API costs can grow quickly, and local models can integrate with editors, shells, grep, test runners, and patch workflows.</p>
+<p>The strongest local coding setup is not a naked chatbot. It is a code-capable instruct model connected to targeted repository context, retrieval over the codebase, file paths, relevant snippets, test execution, and a patch loop.</p>
+<p>Keep decoding deterministic or low-temperature. Ask for patches instead of vague advice. Run tests automatically. Keep a small eval set of real bugs and tasks so you can tell when a new model is actually better.</p>
+<p>Do not let a local model rewrite a large codebase without review. Local does not make a coding agent wise. It only makes the context private, the loop cheaper, and the integration easier to control.</p>
+<h2></h2>
+<p>Local Agents Need Guardrails</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588467572379648">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588467572379648</a>)</p>
+<p>A local LLM becomes much more useful when it can use tools: File search, shell commands, browser automation, databases, code execution, calendars, ticket systems, internal APIs, vector databases, home automation, robotics, or edge devices.</p>
+<p>Tool use changes the safety model. A chatbot that hallucinates is annoying. An agent with filesystem access can delete things. An agent with browser access can leak secrets. An agent with shell access can damage the machine faster than you can read the logs.</p>
+<p>Local agent safety has four layers. Scope the agent tightly by giving it only the directories, APIs, network access, and credentials it actually needs. Constrain execution with sandboxes, containers, least-privilege users, confirmations for destructive actions, and schema-validated tool arguments. Treat inputs as hostile because retrieved documents, web pages, tickets, and emails can contain prompt injection. Keep an audit trail by logging tool calls, model versions, prompts, and approvals without dumping secrets into logs.</p>
+<p>Structured outputs help, but they are not a security boundary. JSON schemas, constrained decoding, and function signatures make tool calls easier to validate. They do not prove the model understood the request, chose the safe action, or avoided injected instructions.</p>
+<p>For serious tool use, put policy checks outside the model.</p>
+<h2></h2>
+<p>RAG Beats Giant Prompts</p>
+<p>RAG means Retrieval-Augmented Generation. Instead of stuffing all information into the prompt, you retrieve relevant chunks from a knowledge base and give only those chunks to the model.</p>
+<p>A good local RAG system usually has document ingestion, parsing, chunking, embeddings, a vector index, retrieval, reranking, prompt construction, answer generation, grounding checks, and evaluation. Each stage is a failure point.</p>
+<p>Bad parsing turns tables into garbage. Bad chunking splits the answer across boundaries. Bad retrieval returns irrelevant paragraphs. Bad reranking buries the right answer at rank 20. A good model cannot reliably answer from evidence it never received.</p>
+<p>Most bad RAG systems are not bad because of the LLM. They are bad because of chunking, retrieval, reranking, and evaluation.</p>
+<p>Chunking strategy is the silent killer. Fixed-size chunks with no overlap can split sentences and lose context. Semantic chunking or hierarchical chunking with parent-document retrieval often works better, but there is no universal answer. You have to evaluate chunk size, overlap, and splitting rules on your actual documents.</p>
+<p>A good reranker can rescue mediocre retrieval. No reranker can fix chunks that lost the answer during ingestion.</p>
+<h2></h2>
+<p>Documents And Knowledge Work</p>
+<p>For private documents, local LLMs shine: Meeting transcript summaries, contract review, technical documentation Q&amp;A, research note synthesis, email drafting, policy search, internal support assistants, and compliance workflows all benefit from keeping source material close to the machine or organization that owns it.</p>
+<p>The workflow is simple but unforgiving. Parse documents carefully, preserve page and section metadata, chunk semantically, use embeddings and rerankers, ask for citations, separate answer from sources from general reasoning, and evaluate citation faithfulness.</p>
+<p>Do not assume the model knows what is in your documents. It only knows what you put into the prompt or retrieve into context.</p>
+<p>For meeting transcripts, preserve speaker labels and timestamps. For contract review, chunk by clause or section instead of arbitrary token count. For technical documentation Q&amp;A, include page numbers or section anchors in retrieved chunks so the model can cite sources accurately.</p>
+<p>For document work, your parser and retriever matter as much as the model.</p>
+<h2></h2>
+<p>Edge Deployment</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057589252796370944">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057589252796370944</a>)</p>
+<p>Small models are increasingly useful on phones, laptops, robots, IoT gateways, factory devices, vehicles, medical devices, offline field equipment, and browser apps. The edge is not only a smaller version of the workstation. It has a different set of constraints.</p>
+<p>Edge deployment is ruled by low memory, low power, thermal limits, intermittent connectivity, privacy requirements, real-time latency, small context windows, and predictable fallback behavior. On those devices, a small reliable model beats a large fragile one.</p>
+<p>A practical edge setup often uses a 0.5B to 4B model, aggressive weight quantization, tiny prompts, fixed schemas, tool-assisted workflows, local embeddings, caching, and no unnecessary chat history.</p>
+<p>When connectivity drops, a local model that keeps working is more valuable than a larger model that fails. The future of local AI is not only giant workstation models. It is also small models doing useful work close to the data.</p>
+<h2></h2>
+<p>A Local LLM Runbook</p>
+<p>Use this as the final gate before trusting a local model for real work.</p>
+<p>Choose and fit: Pick a model family suited to the task, read the license, confirm hardware requirements, choose a quantization level, and estimate the full memory bill. Do not stop at weight size. Include KV cache, runtime overhead, batch/concurrency, and safety margin.</p>
+<p>Load and format: Prefer safetensors or GGUF from reputable sources, avoid untrusted pickle-based files, verify tokenizer and chat template, set context length intentionally, and choose decoding parameters for the task. If the template is wrong, the eval is invalid.</p>
+<p>Evaluate and operate: Test with representative prompts, measure time to first token and decode speed, track peak memory, evaluate retrieval before adding RAG, sandbox tools before adding agents, and fine-tune only after simpler methods fail.</p>
+<p>Version everything that matters: Model, quantization, runtime, prompt, chat template, adapter, embedding model, reranker, eval set, and hardware profile. Local systems are easier to control only when you can reproduce what you ran.</p>
+<h2></h2>
+<p>Fine-Tuning</p>
+<p>Fine-tuning changes model behavior by training on additional data. For local users, the most important methods are LoRA and QLoRA.</p>
+<p>LoRA freezes the base model and trains small low-rank adapter weights. That reduces trainable parameters and lets you maintain multiple lightweight adapters. QLoRA extends this by fine-tuning through a frozen 4-bit quantized model into LoRA adapters.</p>
+<p>Fine-tune when you need a consistent writing style, domain-specific output format, repetitive classification or extraction behavior, tool-call format reliability, a specialized assistant persona, domain adaptation that RAG cannot solve, or better small-model performance on a narrow task.</p>
+<p>Do not fine-tune first. Try this order: correct chat template, better prompting, better model, better decoding, RAG, reranking, few-shot examples, then fine-tuning.</p>
+<p>Most problems that look like the model does not understand my domain are actually my prompt is vague, my template is wrong, or my retrieval is broken.</p>
+<p>A good fine-tuning plan includes clean data, train/validation/test splits, baseline evals, clear target behavior, safety review, overfitting checks, regression evals, adapter versioning, license review, and a rollback plan.</p>
+<h2></h2>
+<p>Open-Weight Does Not Mean Opensource</p>
+<p>In 2026, the phrase open model is often used sloppily. You should distinguish open-weight, source-available, opensource, and local-compatible.</p>
+<p>Open-weight usually means you can download the weights. It does not automatically mean you can use the model commercially, modify it freely, train on its outputs, deploy it at any scale, or ignore attribution requirements.</p>
+<p>Source-available means code or weights are visible. It does not necessarily mean the license is opensource.</p>
+<p>Opensource AI model is a stronger claim. OSI&#39;s Opensource AI Definition treats an AI system as including architecture, parameters/weights, inference code, and enough data information and code used to derive the parameters. That is a much higher bar than the weights are on Hugging Face.</p>
+<p>Some licenses look permissive but contain restrictions: No competitive use, no training on outputs, no deployment above a certain scale, geographic exclusions, attribution requirements, patent clauses, or copyleft-like obligations on derivatives.</p>
+<p>Rule: read the model card and license before using any model commercially. A model can be excellent, downloadable, and locally runnable while still being a bad fit for your legal or deployment constraints.</p>
+<h2></h2>
+<p>Glossary</p>
+<p>Model And Tuning Terms</p>
+<ul>
+<li><p>Active Parameters: In an MoE model, only some parameters are used for a given token. A model may have hundreds of billions of total parameters but far fewer active parameters per token.</p>
+</li>
+<li><p>Adapter: A small trainable module added to a base model, often through LoRA.</p>
+</li>
+<li><p>Base Model: A pretrained model not specifically tuned for chat or instruction following.</p>
+</li>
+<li><p>Fine-Tuning: Additional training that changes model behavior for a target domain or output style.</p>
+</li>
+<li><p>Instruct Model: A model tuned to follow instructions.</p>
+</li>
+<li><p>LoRA / QLoRA: Efficient fine-tuning methods using low-rank adapters, with QLoRA training through quantized base models.</p>
+</li>
+<li><p>MoE: Mixture of Experts. A sparse architecture where only selected expert subnetworks activate per token.</p>
+</li>
+<li><p>Weights / Parameters: The learned numerical values inside the model.</p>
+</li>
+</ul>
+<p>Inference Mechanics</p>
+<ul>
+<li><p>BOS / EOS: Beginning-of-sequence and end-of-sequence tokens.</p>
+</li>
+<li><p>Chat Template: The formatting used to represent system, user, assistant, and tool messages.</p>
+</li>
+<li><p>Context Window: The maximum number of tokens the model can process at once.</p>
+</li>
+<li><p>Decode: The phase where the model generates new tokens one by one.</p>
+</li>
+<li><p>DFlash: A 2026 speculative decoding approach that uses block diffusion for parallel drafting.</p>
+</li>
+<li><p>DDTree / DTree: A speculative decoding method that builds a draft tree from block diffusion distributions and verifies it efficiently.</p>
+</li>
+<li><p>GQA / MQA: Attention variants that reduce KV-cache size and improve inference efficiency.</p>
+</li>
+<li><p>Inference: Running the model to produce outputs.</p>
+</li>
+<li><p>KV Cache: Stored key/value attention states for previous tokens.</p>
+</li>
+<li><p>Prefill: The phase where the model processes the input prompt before generating.</p>
+</li>
+<li><p>RoPE: Rotary Position Embeddings, a positional encoding method common in modern LLMs.</p>
+</li>
+<li><p>Speculative Decoding: A speed technique where a cheaper drafter proposes tokens and the target model verifies them.</p>
+</li>
+<li><p>Tokenizer: The component that converts text into token IDs and back.</p>
+</li>
+<li><p>Top-p / Top-k / Temperature: Sampling controls for token generation.</p>
+</li>
+</ul>
+<p>Retrieval, Files, And Serving</p>
+<ul>
+<li><p>AWQ: Activation-aware weight quantization.</p>
+</li>
+<li><p>Embedding Model: A model that converts text into vectors for search/retrieval.</p>
+</li>
+<li><p>FP8 KV Cache: A practical 8-bit KV-cache compression mode supported in some runtimes.</p>
+</li>
+<li><p>GGUF: A model file format used heavily by llama.cpp.</p>
+</li>
+<li><p>PagedAttention: A KV-cache memory-management technique used by vLLM-style serving.</p>
+</li>
+<li><p>Quantization: Reducing numeric precision to save memory and improve efficiency.</p>
+</li>
+<li><p>RAG: Retrieval-Augmented Generation. Retrieve relevant external context and give it to the model.</p>
+</li>
+<li><p>Reranker: A model that reorders retrieved passages by relevance.</p>
+</li>
+<li><p>Safetensors: A safer tensor serialization format that avoids pickle-based execution risks.</p>
+</li>
+</ul>
+<h2></h2>
+<p>Final Words</p>
+<p>The local LLM ecosystem includes compact edge models, strong 7B to 32B consumer models, large MoE open-weight systems, multimodal models, long-context models, local reasoning models, mature inference runtimes, and increasingly capable private serving stacks.</p>
+<p>But the fundamentals have not changed: the model predicts one token at a time, tokens are not words, weights are not the whole model, chat templates matter, KV cache is the hidden memory bill, quantization is a tradeoff, long context is not free, RAG quality depends on retrieval, fine-tuning needs evals, and local privacy still requires security discipline.</p>
+<p>You do not need mythology to run local models well. You need to know what fits in memory, which template the model expects, how the runtime behaves, and whether your evals match the work you care about.</p>
+<p>Local LLMs are mostly memory math plus formatting plus evaluation. Get those right, and the rest of the stack becomes much easier to reason about.</p>
+<p>Until next time.</p>
+<p>从循环开始。 文本成为标记。 代币通过变压器移动。 注意决定了哪些早期的代币很重要。 运行时保留 KV 缓存,因此模型不会每次都重新计算整个对话。 然后模型选择下一个令牌并再次执行。</p>
+<blockquote>
+<p>有关 LLM 如何工作、模型如何一次思考 1 个令牌以及如何在本地运行它们的实用指南。</p>
+</blockquote>
+<p>一旦该循环点击,硬件和软件的选择就变得更容易推理。 VRAM、量化、上下文长度、聊天模板、解码、RAG、服务引擎和模型选择都属于相同的机制。</p>
+<blockquote>
+<p>从循环开始:输入标记,输出概率,一次输入一个标记。权重告诉模型它学到了什么模式。 上下文告诉它它现在正在看什么。 KV 缓存是保持循环可用的工作内存。只有在您了解模型所遵循的内存、上下文和格式规则后,硬件、运行时和模型选择才有意义。</p>
+</blockquote>
+<p>目标是首先使本地 LLM 机制直观,然后为您提供截至 2026 年 5 月 21 日的硬件、运行时、服务和当前 LLM 研究的实用途径。</p>
+<h2></h2>
+<p>专注</p>
+<p>这是一份模型优先指南。 它从以下机制开始:推理、令牌、Transformers、注意力、KV 缓存、预填充、解码、解码控件、模型包、聊天模板、模型类型、长上下文、RAG、代理、微调和多模态模型。</p>
+<p>之后,它进入本地部署层:本地的真正含义、量化、VRAM 数学、硬件层、运行时选择、服务模式、许可证、模型选择、隐私、故障排除、基准测试、设置路径和实际用例。</p>
+<p>这个命令很重要。 在选择 GPU 之前,您应该了解为什么长提示会消耗内存。 在判断模型之前,您应该了解聊天模板为何重要。 在关心每秒的令牌数之前,您应该了解为什么解码是连续的。</p>
+<p>对于更深层次的硬件和软件路径,我有一个由三部分组成的系列,教授自托管 LLM / 本地 AI:</p>
+<ul>
+<li><p>第 1 部分:</p>
+<p>  <a href="https://x.com/TheAhmadOsman/status/2040103488714068245">LLM 的 GPU 内存数学(2026 年版）</a></p>
+<p>  。</p>
+</li>
+<li><p>第 2 部分:</p>
+<p>  <a href="https://x.com/TheAhmadOsman/status/2041331757329285589">本地 AI 硬件的内存带宽(2026 年版）</a></p>
+<p>  。</p>
+</li>
+<li><p>第 3 部分:</p>
+<p>  <a href="https://x.com/TheAhmadOsman/status/2057183854444843202">LLM 和本地 AI 硬件推理引擎(2026 年版）</a></p>
+<p>  。</p>
+</li>
+</ul>
+<p>前两部分解释了硬件容量和带宽数学。 第三部分解释了将该硬件转化为可用推理的软件层。 本文首先为您提供模型端基础,然后在机制明确后指出这些部署层。</p>
+<h2></h2>
+<p>法学硕士的实际作用</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586295992369152">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586295992369152</a>)</p>
+<p>运行模型称为推理。 对于仅标准解码器的 LLM,推理是一遍又一遍重复的相同循环:</p>
+<ol>
+<li><p>将您的文本转换为令牌。</p>
+</li>
+<li><p>将这些代币输入模型。</p>
+</li>
+<li><p>计算每个可能的下一个标记的分数。</p>
+</li>
+<li><p>选择一个具有解码策略的令牌。</p>
+</li>
+<li><p>将该令牌附加到序列中。</p>
+</li>
+<li><p>重复,直到模型停止、用户停止或达到令牌限制。</p>
+</li>
+</ol>
+<p>该模型并不是一次性写出完整的答案。 它一次生成一个令牌。 每个新令牌都成为影响下一个令牌的序列的一部分。</p>
+<p>从数学上讲,该模型是一个学习函数:</p>
+<blockquote>
+<p>f（theta,序列）-&gt; next_token 上的概率分布</p>
+</blockquote>
+<p>地点:</p>
+<ul>
+<li><p>theta 表示模型权重。</p>
+</li>
+<li><p>序列意味着提示加上迄今为止生成的标记。</p>
+</li>
+<li><p>Logits 是 softmax 之前的原始分数。</p>
+</li>
+<li><p>概率是 softmax 之后的标准化分数。</p>
+</li>
+<li><p>解码将这些概率转换为一个选定的标记。</p>
+</li>
+</ul>
+<p>这就是为什么本地生成速度以每秒代币来衡量。 您的系统反复运行前向传递、选择或采样令牌、更新 KV 缓存并继续。</p>
+<p>感知在这里很重要。 长填充意味着第一个单词出现之前的长时间停顿。 缓慢解码意味着答案流缓慢。 本地构建者经常痴迷于解码速度,因为这是用户的感受,但当你粘贴 10K 令牌文档时,预填充时间就会很痛苦。</p>
+<h2></h2>
+<p>代币</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586520370929664">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586520370929664</a>)</p>
+<p>LLM 不会将原始文本视为单词。 他们看到标记:内部表示为整数 ID 的小块文本。</p>
+<p>令牌可能是:</p>
+<ul>
+<li><p>一个完整的单词:“你好”</p>
+</li>
+<li><p>单词片段:“国际”、“国家”、“化”</p>
+</li>
+<li><p>标点符号</p>
+</li>
+<li><p>空格前缀字符串</p>
+</li>
+<li><p>字节级回退</p>
+</li>
+<li><p>特殊的控制标记,例如 &lt;|user|&gt;、&lt;|assistant|&gt;、或</p>
+</li>
+</ul>
+<p>标记器将文本映射到标记 ID,将标记 ID 映射回文本。 常见的标记器系列包括 BPE 风格的标记器和 SentencePiece 风格的标记器。 不同的模型系列使用不同的标记器,这很重要。 一个 4,000 字的文档在一个标记器中可能有 5,000 个标记,在另一个标记器中可能有 7,500 个标记。</p>
+<p>词汇量也很重要。 词汇量较大的标记器可以将一些文本压缩为更少的标记,但它也会改变嵌入和输出投影的大小。 这是不同模型系列之间每秒代币数不完全可比的原因之一。</p>
+<p>代币很重要,因为它们决定:</p>
+<ul>
+<li><p>上下文窗口中适合多少文本。</p>
+</li>
+<li><p>KV缓存变得多大。</p>
+</li>
+<li><p>在快速处理期间您支付了多少延迟。</p>
+</li>
+<li><p>无论多语言文本还是代码密集型文本都是高效的。</p>
+</li>
+<li><p>模型是否正确看到特殊的聊天标记。</p>
+</li>
+</ul>
+<p>模型的上下文窗口是它可以同时关注的最大令牌数量。 2026 年,服务器类系统中常见的本地模型范围从 8K 和 32K 上下文到 128K、256K 甚至 1M 令牌上下文。</p>
+<p>但支持的上下文长度与廉价、快速或同样准确的上下文不同。 从技术上讲可以处理 128K 代币的模型在 64K 时可能会减慢速度,并在 100K 时失去连贯性。 始终测试您实际计划使用的上下文长度。</p>
+<p>代币是工作单位。 一旦您理解了这一点,长篇上下文就不再看起来神奇,而是开始看起来像一张您可以估算的账单。</p>
+<p>有用的练习:试试我的</p>
+<p><a href="https://ahmadosman.com/tokenizer">Tokenizer 演示应用程序</a></p>
+<p>了解文本如何实时分解为标记。</p>
+<h2></h2>
+<p>变压器</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586563513516033">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586563513516033</a>)</p>
+<p>大多数现代 LLM 都基于 Transformer 架构。 大多数本地聊天 LLM 都是仅解码器的 Transformer:它们预测下一个令牌,同时回顾以前的令牌。</p>
+<p>高于此点的所有内容,包括令牌、权重、配置和聊天模板,都是为下面的真实引擎设置的。 Transformer 是移动数字的骨架。</p>
+<p>简化的变压器层包含:</p>
+<ol>
+<li><p>令牌嵌入:令牌 ID 变成向量。</p>
+</li>
+<li><p>位置信息:模型需要令牌顺序。 许多现代 LLM 使用 RoPE（旋转位置嵌入）,它通过旋转表示对位置进行编码。</p>
+</li>
+<li><p>自我关注:每个代币表示都会回顾以前的代币表示并决定什么很重要。</p>
+</li>
+<li><p>MLP / 前馈块:扩展和压缩表示的密集非线性计算。 很大一部分参数都存在于这里。</p>
+</li>
+<li><p>层归一化和残余连接:这些可以稳定深度网络并帮助信息流过多层。</p>
+</li>
+<li><p>输出投影:最终的隐藏状态变为词汇表上的 logits。</p>
+</li>
+</ol>
+<p>将此食谱堆叠数十或数百次,您就会得到一个语言模型。</p>
+<p>Transformer 回顾:令牌成为向量,注意力连接序列,MLP 重塑表示,RoPE 保持位置笔直,最终投影将最后一个隐藏状态转换为下一个令牌日志。</p>
+<h2></h2>
+<p>注意力</p>
+<p>注意是令牌如何决定哪些早期令牌对于下一个预测很重要。 这也是局部推理对内存如此敏感的原因之一。</p>
+<p>经典的 MHA（多头注意力）为许多头存储单独的键/值状态。 它为模型提供了灵活性,但它使 KV 缓存变得很大。</p>
+<p>现代本地模型通常使用更有效的注意力设计:</p>
+<ul>
+<li><p>MQA:多个查询头共享一个键/值头。 它节省内存,但表达能力可能较差。</p>
+</li>
+<li><p>GQA:查询头组共享键/值头。 这是当前许多本地模式中的共同中间立场。</p>
+</li>
+<li><p>MHA:充分的多头关注。 它可以很强大,但长期上下文很快就会变得昂贵。</p>
+</li>
+</ul>
+<p>FlashAttention 和 SDPA 风格实现等现代内核减少了注意力内存流量并使 GPU 更繁忙。 即使在相同的模型和硬件上,具有良好注意力内核的运行时也可以比没有注意力内核的运行时快得多。</p>
+<p>这就是为什么两个 7B 模型在长期环境下可能会表现得非常不同。 参数计数并不是故事的全部。 128K 上下文的 7B MHA 型号可以耗尽 24 GB 的 GPU,而具有相同广告上下文的 7B GQA 型号可能还有剩余空间。</p>
+<p>比较模型时,要考虑注意力类型、KV 头、上下文长度和运行时支持,而不仅仅是参数数量。</p>
+<h2></h2>
+<p>KV缓存</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586637371002880">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586637371002880</a>)</p>
+<p>KV缓存是模型在生成过程中的工作内存。 它存储先前令牌的键/值注意力状态,因此模型不会从头开始重新计算每个生成的令牌的整个历史记录。</p>
+<p>如果没有 KV 缓存,生成效率将极其低下。 使用 KV 缓存,可以生成,但缓存消耗的内存与以下比例成比例:</p>
+<blockquote>
+<p>标记 x 层 x kv_heads x head_dim x 精度 x 2</p>
+</blockquote>
+<p>x 2 代表键和值。</p>
+<p>对于较旧的类似 Llama 的 7B MHA 模型,一个有用的经验法则是 FP16 KV 缓存中每个令牌大约为 0。5 MiB。 这意味着仅 KV 缓存就需要花费 4K 个代币约 2 GiB。 在 32K 个令牌下,您可能仅查看 16 GiB 的 KV 缓存。</p>
+<p>较新的 GQA/MQA 模型大大减少了这种情况。 某些运行时还支持 FP8 或 INT8 KV 缓存。 这通常是我向 2026 年本地用户推荐的实用压缩地板。</p>
+<p>请勿将 8 位以下 KV 缓存视为默认值。 研究系统,例如</p>
+<p><a href="https://arxiv.org/abs/2402.02750">基维</a></p>
+<p>,</p>
+<p><a href="https://arxiv.org/abs/2401.18079">KV量子</a></p>
+<p>, 较新的压缩缓存内核表明 2 位到 4 位 KV 可以与仔细的算法、校准和自定义内核一起工作。 这与在桌面运行时随意切换 Q4 KV 开关不同。 低于 8 位,基准测试困难,特别是对于编码、工具调用、JSON、长上下文检索以及精确早期令牌重要的任务。</p>
+<p>也不要将 KV 缓存量化与推测解码混淆。</p>
+<p><a href="https://arxiv.org/abs/2602.06036">DFlash</a></p>
+<p>和</p>
+<p><a href="https://arxiv.org/abs/2604.12989">滴滴树</a></p>
+<p>, 通常非正式地缩写为 DTree,通过起草未来的令牌并进行验证来攻击解码延迟。 它们可以提高速度,但不会消除 KV 缓存内存费用。</p>
+<p>这就是为什么模型可以在空提示时适合,但在加载长文档时会崩溃。 重量合适。 工作记忆则不然。</p>
+<h2></h2>
+<p>预填充和解码</p>
+<p>LLM 推理有两种不同的性能机制:预填充和解码。</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587953103196160">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587953103196160</a>)</p>
+<p>预填充处理您给模型的提示。 如果您粘贴一个包含 20,000 个令牌的文档,模型必须处理这 20,000 个令牌才能生成第一个答案令牌。 预填充相对可并行化,因此 GPU 可以有效地处理它,但仍然可能昂贵。</p>
+<p>等待第一个令牌出现的时间通常是预填充时间。</p>
+<p>Decode 一次生成一个新令牌。 到目前为止,每个生成的令牌都取决于序列,因此解码更加连续。 这就是流式输入效果的来源,它通常是决定模型感觉快还是慢的阶段。</p>
+<p>长提示惩罚预填充。 长答案惩罚解码。 由于 KV 缓存不断增长,长时间的对话会对两者造成惩罚。</p>
+<p>在聊天会话中,每一回合都会添加到缓存中。 如果您让对话运行到 16K 代币,则您将为生成的每个新代币支付所有 16K 代币的内存成本。 这就是为什么保留无限历史记录的聊天 UI 最终会变慢或崩溃的原因。</p>
+<h2></h2>
+<p>解码</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586728093810688">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586728093810688</a>)</p>
+<p>模型生成logits后,还没有写入任何内容。 它只获得了所有可能的下一个代币。 解码是一种将这些分数转换为一个实际标记、将该标记附加到上下文并重复循环的策略。</p>
+<p>运行时,或</p>
+<p><a href="https://x.com/TheAhmadOsman/status/2057183854444843202">推理引擎</a></p>
+<p>, 可以通过多种方式选择代币。 它每次都可以选择概率最高的令牌。 它可以从一组狭窄的可能标记中进行采样。 它可以惩罚重复。 它可以在分隔符处停止。 它可以使用固定种子,以便相同的提示具有可重复的行为。</p>
+<p>这些选择不会改变模型权重,但会改变模型的声音、决定论、创造力、风险状况和循环倾向。</p>
+<p>重要的旋钮回答了三个实际问题:</p>
+<ul>
+<li><p>随机性:允许多少变化？</p>
+</li>
+<li><p>尾部覆盖范围:采样器可以深入低概率标记多远？</p>
+</li>
+<li><p>边界:什么可以防止循环、漫无目的、模式中断或失控输出？</p>
+</li>
+</ul>
+<p>对于精确的工作,从窄开始:低温、短的最大令牌限制、明确的停止序列以及输出必须与 JSON 或模式匹配时的约束解码。 对于创造性工作,给采样器更多的空间,温度更高,top-p,然后对多个候选进行排序。 对于编码,请保持第一遍保守性,然后仅在您有意探索时才尝试替代方案。</p>
+<p>贪婪的解码并不总是更准确。 它通常很脆。 贪婪的解码器可能会陷入循环或产生通用答案,因为它从不探索替代方案。 对于平均值,请使用确定性设置。 为了构思,让模型呼吸。</p>
+<h2></h2>
+<p>模型包包含什么</p>
+<p>可运行的本地 LLM 不仅仅是一个大权重文件。 模型包通常包括:</p>
+<ul>
+<li><p>架构/配置:层数、隐藏大小、注意力类型、RoPE 设置、词汇大小、特殊标记和上下文长度。</p>
+</li>
+<li><p>权重:学习到的参数,通常存储为安全传感器、GGUF、GPTQ、AWQ、EXL2 或其他特定于运行时的格式。</p>
+</li>
+<li><p>Tokenizer:将文本转换为令牌 ID 并将令牌 ID 重新转换为文本的规则。</p>
+</li>
+<li><p>聊天模板:系统、用户、助手、工具和推理消息的确切标记。</p>
+</li>
+<li><p>生成配置:温度、top-p、停止标记、重复惩罚和最大标记的默认值。</p>
+</li>
+<li><p>许可证和型号卡:有关如何使用型号的法律和操作说明。</p>
+</li>
+</ul>
+<p>权重是最大的文件,但它们不是整个模型。 如果标记器、配置或聊天模板错误,相同的权重可能会感觉损坏。</p>
+<p>套餐部分告诉您哪些物品需要一起旅行。 下一节将解释为什么聊天模板是人们最常破坏的部分。</p>
+<h2></h2>
+<p>聊天模板</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586803171872768">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586803171872768</a>)</p>
+<p>使用特定的对话格式训练聊天模型。 例如,它可能会期望类似这样的结果:</p>
+<blockquote>
+<p>&lt;|系统|&gt; 你是一位乐于助人的助手。 &lt;|用户|&gt; 解释 KV 缓存。 &lt;|助手|&gt;</p>
+</blockquote>
+<p>另一个模型可能会期望:</p>
+<blockquote>
+<p>[BOS] [INST] 解释 KV 缓存。 [/安装]</p>
+</blockquote>
+<p>另一个可能使用 ChatML 风格的标记。 另一个可能需要特殊的推理标记。 另一个可能需要工具调用 XML 或 JSON 包装器。</p>
+<p>使用错误的格式可能会导致乱码、角色混淆、忽略系统提示、重复提示、拒绝怪异、工具调用中断、基准结果不佳,以及当模板是实际错误时得出模型愚蠢的结论。</p>
+<p>最佳实践:</p>
+<ul>
+<li><p>使用 Transformers 时使用标记器的 apply_chat_template。</p>
+</li>
+<li><p>在 Harbor 支持的前端、llama。cpp、LM Studio、vLLM 或 SGLang 中使用特定于模型的模板。</p>
+</li>
+<li><p>检查模型是否为基础、指导、聊天、推理或工具调整。</p>
+</li>
+<li><p>确保 BOS/EOS 代币正确。</p>
+</li>
+<li><p>保持系统提示简短,除非它们需要很长。</p>
+</li>
+<li><p>对于工具的使用,请遵循模型/运行时预期的精确模式。</p>
+</li>
+</ul>
+<p>如果您正在构建一个允许用户切换模型的应用程序,那么您也需要切换模板。 对一种模板格式进行硬编码,然后加载期望另一种模板格式的模型是不良局部模型评估的常见来源。</p>
+<p>将模板视为 API 合约。 如果您弄错了,那么您实际上并没有测试您认为正在测试的模型。</p>
+<h2></h2>
+<p>模型类型</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586851800641536">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586851800641536</a>)</p>
+<p>并非所有 LLM 都针对相同的行为进行调整。</p>
+<p>对于大多数用户来说,默认起点应该是最近的指示/聊天调整模型,其大小适合内存。</p>
+<p>除非您知道原因,否则不要从基本模型开始。 基础模型会完成您的提示而不是回答它。 它们对于研究人员、微调人员和构建定制管道的人来说很有用。 它们让其他人感到沮丧。</p>
+<p>如果你问一个基本模型法国的首都是什么？它可能会继续下去,巴黎的人口是多少？ 而不是回答巴黎。</p>
+<p>实际的划分很简单:</p>
+<ul>
+<li><p>基本模型:适合预训练研究、微调和自定义管道。</p>
+</li>
+<li><p>指导模式:适合直接指导。</p>
+</li>
+<li><p>聊天模式:适合角色格式的多轮对话。</p>
+</li>
+<li><p>推理模型:当任务受益于额外的思维标记和验证时,该模型很好。</p>
+</li>
+<li><p>工具调整模型:当结构化调用、JSON 或函数使用很重要时,效果很好。</p>
+</li>
+</ul>
+<h2></h2>
+<p>本地化真正意味着什么</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586889121570816">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586889121570816</a>)</p>
+<p>本地 LLM 是一个模型,其权重和推理运行时由您控制。 您可以决定什么模型运行、如何运行、看到哪些数据以及输出会发生什么。</p>
+<p>这种自由伴随着工作而来。 您现在是行动团队。 您可以处理下载、更新、兼容性、内存限制和安全性。 当出现问题时,无需提交支持票。 只有你、日志和文档。</p>
+<p>本地可能意味着:</p>
+<ul>
+<li><p>在手机上运行的 2B 参数模型。</p>
+</li>
+<li><p>在消费级 GPU 上运行的 7B 至 14B 模型。</p>
+</li>
+<li><p>在高端工作站上运行的 30B 至 70B 型号。</p>
+</li>
+<li><p>在一个或多个数据中心 GPU 上运行的稀疏 MoE 模型。</p>
+</li>
+<li><p>使用 vLLM、SGLang、TensorRT-LLM、llama。cpp、Harbor、LM Studio 或自定义 PyTorch 堆栈的私人部署。</p>
+</li>
+</ul>
+<p>关键点:本地并不一定意味着离线、私有、安全、便宜或开源。 这仅意味着您自己运行模型。 本地应用程序仍然可以打电话回家。 模型可以是开放权重的,但不能是开源的。 模型可以是本地的,但加载不安全。 量化模型可以适应内存,但答案很差。</p>
+<p>当您需要隐私、低延迟、自定义行为、离线操作或大规模成本控制时,这种权衡是值得的。 当您需要绝对最佳的型号质量并且没有匹配的硬件时,这是不值得的。 在这种情况下,托管 API 是正确的工具。</p>
+<p>当你理解一个方程时,局部 LLM 是实用的:</p>
+<blockquote>
+<p>本地 LLM 成功 = 模型拟合 + 正确的提示格式 + 良好的运行时间 + 现实的评估。</p>
+</blockquote>
+<p>其他一切都是细节。 细节很重要。</p>
+<h2></h2>
+<p>量化</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586936164802560">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586936164802560</a>)</p>
+<p>量化以较低的精度存储权重,以减少内存,有时还可以提高吞吐量。</p>
+<p>2026年本地用户经验法则:</p>
+<ul>
+<li><p>FP16/BF16:内存充足时质量最佳。 以此作为评估的基准。</p>
+</li>
+<li><p>Q8 / INT8:对于许多任务来说几乎无损,但仍然很大。 当您拥有 VRAM 并希望将质量损失降至最低时,这是件好事。</p>
+</li>
+<li><p>Q6 / Q5:品质优良,节省适中。 这是一个强有力的中间立场。</p>
+</li>
+<li><p>Q4:许多聊天和文档工作流程的默认消费者最佳点。</p>
+</li>
+<li><p>Q3 / Q2:仅当您必须适合更大的型号时。 数学、代码、结构化输出和工具的使用首先下降。</p>
+</li>
+</ul>
+<p>权重量化与 KV 缓存量化不同。 重量量化缩小了模型。 KV-缓存量化缩小了实时上下文内存。</p>
+<p>对于 KV 缓存,将 FP16/BF16 视为干净的基线,将 FP8/INT8 视为实用的本地压缩地板。 8 位以下的研究量很大,并且对工作负载敏感。 仅在实际提示上测量质量后才使用它。</p>
+<p>量化失败首先出现在数学、多步骤推理、代码正确性、工具使用可靠性、JSON/模式依从性、微妙的指令遵循和长上下文检索中。</p>
+<p>精度更高的较小模型可以击败被压成太少位的较大模型。 不要崇拜参数计数。 Q6 的 7B 模型可以在推理任务上击败 Q2 的 13B 模型,同时消耗更少的内存和运行速度更快。</p>
+<h2></h2>
+<p>文件格式和负载安全</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586972449783808">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057586972449783808</a>)</p>
+<p>safetensors 是一种安全的张量序列化格式,旨在存储张量,而无需 Python pickle 行为。 尽可能使用安全传感器,特别是对于 PyTorch/Transformers 型号。</p>
+<p>避免来自不受信任来源的随机 。bin 文件。 PyTorch 基于 pickle 的加载可以在反序列化期间执行任意代码。 本地人工智能安全规则一:不要让陌生人的模型文件成为陌生人的代码执行。</p>
+<p>GGUF 是 llama。cpp 生态系统的二进制模型格式。 当您想要 llama。cpp、CPU 推理、Apple Silicon 推理、简单的本地服务器、便携式量化模型或 LM Studio 等桌面工具时,请使用 GGUF。</p>
+<p>ONNX 对于标准化部署和硬件特定的加速很有用,尤其是在通常的 PyTorch 堆栈之外。 如果您要部署到 Intel NPU、ARM 设备或自定义加速器,ONNX 通常是阻力最小的路径。</p>
+<p>TensorRT-LLM 是 NVIDIA 用于生产 GPU 分配的高性能推理路径。 它功能强大,但比 llama。cpp 或 Harbor 更复杂。 您通常会将检查点转换为 TensorRT 引擎,这需要时间和 GPU 内存,但一旦构建就会产生卓越的吞吐量。</p>
+<p>EXL2 / GPTQ / AWQ 格式在以 GPU 为中心的本地推理社区中很常见,尤其是用于将更大的模型压缩到单个 GPU 上。</p>
+<p>文件格式的选择并不美观。 它确定哪些运行时可以加载模型、可以使用什么量化以及运行速度。</p>
+<h2></h2>
+<p>运行时和服务模式</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587011200892928">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587011200892928</a>)</p>
+<p>运行时是加载模型并执行推理的软件。 2026 年,本地 LLM 运行时生态系统成熟、有用且分散。</p>
+<p>对于在当地进行实验的单人,请从开始</p>
+<p><a href="https://github.com/av/harbor">港口</a></p>
+<p>, LM Studio,或 llama。cpp。 当您想要一个完整的本地堆栈,将前端、后端和支持服务连接在一起时,Harbor 是最好的选择。 LM Studio 是最简单的桌面优先路径。 llama。cpp 是低级便携式主力。</p>
+<p>对于团队或私人服务,请查看 vLLM 或 SGLang。 为了获得最大的 NVIDIA 生产性能,请研究 TensorRT-LLM。 对于浏览器或移动部署,请查看 MLC 或 WebLLM。</p>
+<p>运行时选择通常会将您锁定在格式生态系统中。 llama。cpp 表示 GGUF。vLLM,SGLang 通常表示安全传感器或 Hugging Face 检查点。TensorRT-LLM 表示 ONNX 或优化引擎。 首先选择运行时,然后找到正确格式的模型。</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587056193236992">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587056193236992</a>)</p>
+<p>有三种实用的服务模式。</p>
+<p>单用户本地是指一个人的桌面应用程序、CLI 堆栈或命令行服务器。 Harbor、LM Studio、llama。cpp 服务器、ExLlama/TabbyAPI 和小型 Transformers 脚本都适合这里。 目标是快速迭代:无需构建操作平台即可比较行为、速度、内存使用和提示格式。</p>
+<p>团队或私有 API 是指工作站或服务器上兼容 OpenAI 的端点。 vLLM、SGLang、TensorRT-LLM 和 llama。cpp 服务器都显示在这里,具体取决于模型大小和吞吐量需求。 一旦多人或工作共享一个模型,您就需要监控、提示/版本管理、路由和真实的延迟测量。</p>
+<p>生产服务是另一项工作。 现在的对话包括连续批处理、前缀缓存、推测解码、分页注意力、张量并行、管道并行、量化服务、结构化输出、负载平衡、GPU 利用率、延迟百分位数、提示缓存、准入控制、日志记录、故障转移、隐私和成本控制。</p>
+<p>在生产规模上,我可以加载模型吗？ 是一个简单的问题。 困难的问题是,在实际流量下我能可靠地提供服务吗？</p>
+<h2></h2>
+<p>本地模型的 VRAM 数学</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587105132318720">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587105132318720</a>)</p>
+<p>主要内存消耗者有三个:</p>
+<ol>
+<li><p>模型权重</p>
+</li>
+<li><p>KV缓存</p>
+</li>
+<li><p>运行时开销</p>
+</li>
+</ol>
+<p>粗重量记忆公式为:</p>
+<blockquote>
+<p>weight_memory ~= 参数 x bytes_per_parameter</p>
+</blockquote>
+<p>有用的近似值:</p>
+<ul>
+<li><p>FP16/BF16:每个参数约 2 个字节。</p>
+</li>
+<li><p>INT8/Q8:大约 1 个字节参数。</p>
+</li>
+<li><p>Q4:每个参数约 0。5 字节,加上格式开销。</p>
+</li>
+</ul>
+<p>崇拜主题:</p>
+<ul>
+<li><p>运行时开销:框架缓冲区、CUDA 开销、内存碎片和临时张量。</p>
+</li>
+<li><p>KV 缓存:在活动上下文中随着每个令牌一起增长。</p>
+</li>
+<li><p>批处理/并发内存:每个并发请求都需要自己的缓存。</p>
+</li>
+<li><p>视觉编码器内存:图像也成为标记。</p>
+</li>
+<li><p>推测解码内存:草稿模型、草稿头或额外的验证结构不是免费的。</p>
+</li>
+<li><p>适配器内存:LoRA 适配器很小,但仍然是真实的。</p>
+</li>
+</ul>
+<p>教育部模型又增加了一个问题。 每个令牌可能仅激活模型参数的一小部分,但不活动的专家通常仍需要生活在内存中的某个地方。 活动参数影响计算成本。 总参数仍然影响负载和容量规划。</p>
+<p>现实的估计如下:</p>
+<blockquote>
+<p>total_memory = quantized_weightsKV_cache_for_context 运行时_开销 批次_或_并发_开销 安全_利润</p>
+</blockquote>
+<p>陷阱如下:Q4 中的 13B 模型可能很容易适应 8K 上下文,然后在 32K 下失败,因为 KV 缓存增加了四倍。 重量没有变化。 上下文确实如此。</p>
+<p>留出 10% 至 20% 的净空。 以 99% 的 VRAM 利用率运行会导致内存不足错误和碎片故障。</p>
+<h2></h2>
+<p>实践中的硬件层</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587158437838848">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587158437838848</a>)</p>
+<p>这些是实用的 2026 年经验法则,假设量化推理和合理的上下文长度。 确切的结果取决于运行时、量化、模型架构、注意力类型、上下文长度和操作系统/驱动程序开销。</p>
+<p>对于 2026 年大多数严肃的本地用户来说,16 GB 是最低舒适的 GPU 层,24 GB 是最有价值的爱好者层,48 GB+ 是更强大的本地世界开放的地方。</p>
+<p>性能取决于内存带宽、GPU FLOP、VRAM 容量、KV 缓存大小、注意力实现、量化、批量大小、提示长度、生成长度和运行时成熟度。</p>
+<p>解码通常受内存带宽限制:GPU 反复传输权重,同时每个字节的计算量相对较少。 Prefill 更受计算限制,因为它可以并行处理提示。 这就是为什么如果一张卡的内存带宽要高得多,那么具有相同 VRAM 容量的两张卡的令牌速度可能会有很大不同。</p>
+<p>最痛苦的本地设置是模型几乎适合并将层溢出到 CPU 的设置。 从技术上讲,它可能会运行,但令牌速度可能会崩溃。 CPU卸载对于实验来说是可以接受的。 这不是一种绩效策略。</p>
+<h2></h2>
+<p>选择合适的型号</p>
+<p>实际问题不是最好的模型是什么？ 最小的模型是什么赢得了硬件上的实际工作负载？</p>
+<p>从最近的指导/聊天模型开始,该模型可以舒适地适应您实际需要的上下文长度。 如果您使用的是 8 GB 至 12 GB 的 VRAM 或统一内存,请从小规模开始。 如果您使用的是 16 GB 至 24 GB,请先测试 7B 至 14B 级型号。 如果您拥有 48 GB 或更多,则更大密度的模型和 MoE 模型将变得逼真。</p>
+<p>在爱上检查点之前,请先使用这个记忆门:</p>
+<blockquote>
+<p>权重 + KV 缓存 + 运行时开销 &lt;= 可用内存的 80% 至 90%</p>
+</blockquote>
+<p>然后对候选人运行相同的 20 到 50 个提示。 包括您的实际任务:编码编辑、文档问答、JSON 输出、摘要、工具调用、长上下文或任何您实际需要的内容。 测量答案质量、延迟、内存使用、模板可靠性和故障模式。</p>
+<p>实用的模型选择通常归结为五项检查:</p>
+<ul>
+<li><p>任务适合:聊天、编码、文档、代理、多模式、边缘或微调。</p>
+</li>
+<li><p>内存拟合:权重、KV 缓存、运行时开销和安全裕度。</p>
+</li>
+<li><p>界面适合:令牌器、聊天模板、停止令牌、工具模式和推理模式。</p>
+</li>
+<li><p>运行时适合:您的运行时是否很好地支持这种架构、量化、上下文长度和服务模式？</p>
+</li>
+<li><p>许可证适合性:您实际上可以在您计划使用的地方使用它吗？</p>
+</li>
+</ul>
+<p>排行榜对于发现很有用。 它们不能替代你自己的平等。 您的工作量是重要的基准。</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587247877115904">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587247877115904</a>)</p>
+<p>对于简单的本地助手,请选择最近的 7B 到 14B 指令模型、Q4/Q5 量化、正确的聊天模板、8K 到 32K 上下文以及 Harbor、LM Studio 或 llama。cpp。 优先考虑响应能力而不是巨大规模。</p>
+<p>对于本地编码助手,如果您有足够的 VRAM,请选择具有编码功能的 14B 至 32B 型号。 使用低温、存储库检索、测试执行和基于补丁的工作流程。 没有工具的代码模型是半产品。</p>
+<p>对于私人文档助手,选择强指令模型、本地嵌入模型、重排序器、RAG 管道、引用执行和中长上下文。 不要粘贴 200 页的 PDF 并希望。</p>
+<p>对于推理设置,选择一个经过推理调整的模型,预算额外的令牌,使用中低温度,添加验证,并使用数学、代码或搜索工具。 推理模型花费更多的代币。 相应地预算。</p>
+<p>对于低资源设置,选择 1B 到 4B 模型、Q4/Q5、短提示、结构化任务、检索或工具以及严格的输出模式。 当任务受到限制时,小模型就变得有用。</p>
+<h2></h2>
+<p>什么控制速度</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587312385548288">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587312385548288</a>)</p>
+<p>每秒代币不受一件事控制。 它是模型大小、内存带宽、计算、注意力内核、上下文长度、量化、批处理和运行时质量的结果。</p>
+<p>主要杠杆是:</p>
+<ul>
+<li><p>内存带宽:解码通常会重复传输模型权重,因此带宽在单用户令牌速度中占主导地位。</p>
+</li>
+<li><p>GPU FLOP:预填充和大批量使用更多的并行计算,因此 FLOP 在那里更为重要。</p>
+</li>
+<li><p>VRAM 容量:如果模型或 KV 缓存溢出到 CPU,性能可能会崩溃。</p>
+</li>
+<li><p>注意力实现:FlashAttention、SDPA、分页注意力和特定于运行时的内核都会改变速度和内存行为。</p>
+</li>
+<li><p>量化:较小的权重会减少内存移动,但激进的量化会损害质量,有时还会增加反量化开销。</p>
+</li>
+<li><p>批量大小和并发性:批量提高了吞吐量,但每个活动序列都需要 KV 缓存。</p>
+</li>
+<li><p>提示长度:较长的提示会增加预填充时间。</p>
+</li>
+<li><p>生成的长度:长答案暴露解码速度。</p>
+</li>
+<li><p>推测解码:EAGLE 风格的方法、MTP、DFlash 和 DDTree 在支持时可以在每次目标传递时验证多个起草的令牌。</p>
+</li>
+</ul>
+<p>痛苦的设置是几乎合适的设置。 从技术上讲,将图层或缓存溢出到 CPU 的模型可能会运行,但令牌速度可能会从可用下降到糟糕。</p>
+<p>对您计划使用的确切运行时、量化、上下文长度、提示形状和工作负载进行基准测试。 BF16 排行榜号码不会告诉您 Q4 本地堆栈的感觉。</p>
+<h2></h2>
+<p>长期背景</p>
+<p>长上下文听起来很神奇:一个提示中有 128K、256K 甚至 1M 个标记。 它很有用,但成本却很高。</p>
+<p>更多的上下文意味着更多的 KV 缓存内存、更慢的提示处理、更多的注意力工作、更难的评估以及更多不相关文本分散模型注意力的方式。 质量也会随着距离的增加而下降。 模型可以很好地处理长文档的结尾,同时缺少隐藏在开头附近的关键细节。</p>
+<p>当检索错过上下文时,使用长上下文进行全文档分析、代码库切片、法律或技术审查、转录摘要、多文件推理和 RAG 回退。</p>
+<p>不要将长上下文视为检索的替代。 它是一种补充。 对于大型语料库,使用 RAG；对于最终选定的证据,使用长上下文。</p>
+<p>实用习惯有帮助:</p>
+<ul>
+<li><p>将关键指令放在开头和结尾附近。</p>
+</li>
+<li><p>使用章节标题和分隔符。</p>
+</li>
+<li><p>要求引用与源块相关联。</p>
+</li>
+<li><p>压缩不相关的历史。</p>
+</li>
+<li><p>使用摘要内存而不是无限的聊天历史记录。</p>
+</li>
+</ul>
+<p>将长上下文视为昂贵的注意力,而不是免费的笔记本。</p>
+<h2></h2>
+<p>多模态</p>
+<p>除了文本之外,多模式本地模型还接受图像,有时还接受音频或视频。 现代开放权重生态系统越来越多地包含这些模型。</p>
+<p>隐性成本是非文本输入也成为代币。 视觉编码器添加内存。 图像补丁消耗上下文。 音频和视频可能会超出输入预算。 多模式模板也比纯文本模板更容易出错。</p>
+<p>单个高分辨率图像可以在上下文窗口中消耗数千个标记。 如果您在本地运行多模态模型,则计算图像标记的方式与计算文本标记的方式相同。 它们来自相同的预算。</p>
+<p>小型 VLM 可能会产生视觉细节幻觉。 OCR 可靠性各不相同。 图表和表格仍然很难。 对于严肃的文档或图像工作流程,请使用真实样本进行评估。 不要相信简单照片的演示来证明发票提取质量。</p>
+<h2></h2>
+<p>2026 年本地模特场景</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587487002828801">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587487002828801</a>)</p>
+<p>模型场景变化很快。 截至 2026 年 5 月 21 日,当地法学硕士用户应该从家庭和生态系统的角度思考,而不是从最佳模型的角度思考。</p>
+<p>Qwen 3。5 / Qwen 3。6 是一个主要的开放权重系列,因为它涵盖了整个堆栈:笔记本电脑的小型模型、工作站的密集中型模型、多 GPU 服务的 MoE 模型、FP8 变体、长上下文、多语言工作、编码、工具和代理工作流程。 实用要点很简单:当您想要一个涵盖笔记本电脑实验和严肃的本地服务的生态系统时,Qwen 是一个强大的默认系列。</p>
+<p>Gemma 4 很重要,因为 Google DeepMind 正在推动该系列实现有用的本地部署:高效的边缘模型、更大的密集和 MoE 选项、多模态性、更大模型的长上下文、广泛的语言支持、更强的编码/代理行为以及 Apache 2。0 许可。 当商业使用和设备端部署很重要时,这种组合值得测试。</p>
+<p>Kimi / Moonshot AI、GLM /</p>
+<p><a href="https://z.ai/">扎伊</a></p>
+<p>, DeepSeek、MiniMax 和 Mistral 也是需要追踪的核心家族。 Kimi 与长时域编码、多模态推理、工具使用和代理工作流程相关。 GLM 对于编码代理、长期任务、MoE 系统和面向部署的模型发布非常重要。 DeepSeek 仍然具有影响力,因为它具有大型 MoE 系统、多头潜在注意力机制、DeepSeekMoE、FP8 服务路径、稀疏注意力机制和高吞吐量自托管。 MiniMax 值得关注,因为它具有实用的代理工作负载和推理高效的 MoE 模型。 Mistral 仍然很重要,因为它的产品线涵盖了通用、编码、推理、多模式和专业用例,并提供强大的部署支持。</p>
+<p>Nemotron 3 是 NVIDIA 的开放模型系列,适用于 NVIDIA 硬件上的生产级代理系统。 该系列包括 Nano、Super 和 Ultra 尺寸,采用混合 Mamba-Transformer MoE 设计,并与 TensorRT-LLM、NIM、Dynamo、Blackwell NVFP4/FP8 路径和企业代理部署紧密相关。 不要把它看作是一个随意的桌面聊天家庭,而要把它看作是 NVIDIA 想要开放重量服务堆栈去向的信号。</p>
+<p>开放重量AI不再只是Llama vs。 其他一切。 您正在选择一个生态系统:权重、许可证、标记器、模板、量化、运行时支持、服务路径、社区工具和故障模式。</p>
+<p>Qwen 27B 密集模型</p>
+<p>Qwen 3。5/3。6 27B（密集）对于关心编码、多语言工作、工具使用、思考/非思考模式和长上下文的本地用户来说是最实用的公共权重选项之一。 的</p>
+<p><a href="https://huggingface.co/Qwen/Qwen3.5-27B">Qwen 3。5 27B</a></p>
+<p>和</p>
+<p><a href="https://huggingface.co/Qwen/Qwen3.6-27B">Qwen 3。6 27B</a></p>
+<p>模型卡描述了与 OpenAI 兼容的服务路径、思维模式默认值、工具使用情况以及高达 262,144 个令牌的上下文长度,并在支持的框架中通过 YaRN 进行更长的上下文扩展。</p>
+<p>当运行时正确配置以用于编码、代理或多语言覆盖时,Qwen 是 2x RTX 3090 设置的强默认值。</p>
+<p>推理研究</p>
+<p>2026年的前沿不仅仅是车型质量。 这也是推理效率。</p>
+<p><a href="https://arxiv.org/abs/2309.06180">分页注意</a></p>
+<p>攻击服务中的 KV 缓存内存浪费。 FP8 KV 缓存现在是系统中的实用运行时功能,例如</p>
+<p><a href="https://docs.vllm.ai/en/latest/features/quantization/quantized_kvcache/">虚拟有限责任模型</a></p>
+<p>。 DFlash 和 DDTree 利用块扩散草稿模型和草稿树探索推测解码。 NVFP4 也值得在 NVIDIA 硬件上观看,因为它改变了受支持堆栈的实际部署对话。</p>
+<p>其中一些已准备好投入生产。 其中一些仍在研究中。 有些问题只有当您的运行时干净地支持它时才重要。 请勿将纸质加速视为桌面应用程序中的复选框。</p>
+<h2></h2>
+<p>故障模式和修复</p>
+<p>大多数当地的法学硕士失败并不神秘。 它们通常来自内存拟合、格式化、运行时支持、解码设置或检索质量。</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588641975730176">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588641975730176</a>)</p>
+<p>内存不足:权重、KV 缓存、运行时开销或批量大小不适合。 使用更小的模型,减少上下文,降低批量/并发性,选择更好的量化,或留出更多的空间。</p>
+<p>胡言乱语或角色混淆:聊天模板、标记器、BOS/EOS 标记、推理模式开关或工具模式是错误的。 在指责模型质量之前,先验证模型卡和运行时模板。</p>
+<p>第一个令牌速度慢:预填充很昂贵。 缩短提示、使用前缀缓存、改进检索、减少上下文或使用更快的运行时。</p>
+<p>流媒体速度慢:解码是瓶颈。 检查内存带宽、量化、CPU 溢出、注意力后端、推测解码支持,以及模型是否对于硬件来说太大。</p>
+<p>错误文档答案:检索可能失败。 检查解析的文本、块边界、元数据、top-k 检索、重新排序和引用基础。</p>
+<p>不良的 JSON 或工具调用:使用较低的温度、受限的解码、更严格的模式、更好的示例以及针对工具使用进行调整的模型。</p>
+<p>重复循环:降低温度或 top-p,添加重复惩罚,检查停止标记,并确保模板不会导致模型将自己的答案视为新提示。</p>
+<p>从无聊的检查开始。 它们比模型交换能解决更多的问题。</p>
+<h2></h2>
+<p>如何扩大堆栈</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587583895375874">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587583895375874</a>)</p>
+<p>初学者:最简单有用的设置</p>
+<p>使用 Harbor 或 LM Studio、最新的 4B 到 9B 指令模型、Q4 量化、8K 到 32K 上下文以及内置聊天 UI。 下载相同尺寸类别中的两到三个模型,并在相同的提示上进行比较。</p>
+<p>目标:学习提示、比较模型、了解速度和内存,并首先避免自定义代码。</p>
+<p>中级:开发人员设置</p>
+<p>使用 llama。cpp 或 Transformers、GGUF 或 safetensors、兼容 OpenAI 的本地服务器、简单的 RAG 管道和小型评估集。 从真实应用程序或脚本调用本地服务器,而不是仅使用聊天 UI。</p>
+<p>目标:构建本地应用程序、测试检索、测量质量并从本地主机提供服务。</p>
+<p>高级:私人服务设置</p>
+<p>使用 vLLM 或 SGLang、一个或多个 GPU、兼容 OpenAI 的 API、监控、提示/版本管理、评估套件、带重新排序的 RAG 和工具沙盒。</p>
+<p>目标:为真实用户或内部工作流程提供服务,优化吞吐量和延迟,并保持安全性和可观察性。</p>
+<p>专家:定制优化</p>
+<p>使用 TensorRT-LLM、自定义内核、专门运行时、量化实验、推测解码、多 GPU 并行、微调、蒸馏和生产评估。</p>
+<p>目标:牺牲工程时间来提高推理效率、降低成本并提高规模质量。</p>
+<h2></h2>
+<p>隐私不是自动的</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587696189517824">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587696189517824</a>)</p>
+<p>本地 LLM 可以提高隐私性,因为提示和输出可以保留在您的硬件上。 但本地并不一定意味着安全。</p>
+<p>威胁包括恶意模型文件、基于 pickle 的权重加载、不受信任的 trust_remote_code、检索到的文档中的提示注入、工具调用滥用、通过日志的秘密泄露、来自桌面应用程序、浏览器扩展或插件的遥测、高风险设置中的模型幻觉、许可证违规以及微调过程中的数据污染。</p>
+<p>可行的本地人工智能安全基线有四个习惯:</p>
+<ul>
+<li><p>仔细加载:优先使用来自信誉良好的来源的安全传感器或 GGUF,避免不受信任的 。bin 文件,并且不要随意启用 trust_remote_code。</p>
+</li>
+<li><p>有边界地运行:当离线隐私很重要时,使用非特权用户、代理的容器或沙箱以及禁用的网络访问。</p>
+</li>
+<li><p>保护机密:将凭据排除在提示和 RAG 索引之外,检查桌面应用程序遥测设置,并在执行前验证工具调用。</p>
+</li>
+<li><p>版本很重要:跟踪模型、提示、适配器、运行时和量化版本,并记录足够的日志以进行调试,而不会造成隐私灾难。</p>
+</li>
+</ul>
+<p>本地人工智能安全大多是枯燥的操作学科。 这也是避免下载随机检查点、以 root 身份运行以及将本地 AI 转变为本地妥协的方法。</p>
+<h2></h2>
+<p>重要的基准</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587732243738624">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057587732243738624</a>)</p>
+<p>对您实际运行的堆栈进行基准测试。 模特的 BF16 排行榜分数不是您的 Q4 本地现实。</p>
+<p>测量质量、延迟、内存、可靠性和操作拟合度:</p>
+<ul>
+<li><p>质量:正确完成实际任务,而不仅仅是通用基准。</p>
+</li>
+<li><p>延迟:第一个令牌的时间、每秒解码令牌的时间以及端到端时间。</p>
+</li>
+<li><p>内存:重量内存、KV 缓存增长、峰值 VRAM 和负载下的余量。</p>
+</li>
+<li><p>格式:聊天模板正确性、JSON/模式成功、工具调用可靠性和停止令牌行为。</p>
+</li>
+<li><p>检索:引用忠诚度、答案基础、缺失证据行为和重新排序器影响。</p>
+</li>
+<li><p>操作:启动时间、预热行为、崩溃恢复、日志记录、隐私和版本跟踪。</p>
+</li>
+</ul>
+<p>创建一个包含 30 到 100 个代表性提示的小型评估集。 包括预期答案或评分标准、延迟和内存测量、故障类别、RAG 特定的接地检查、相关的 JSON 合规性检查以及对模糊任务的人工审查。</p>
+<p>然后比较模型。 不要让排行榜为您选择本地堆栈。</p>
+<h2></h2>
+<p>使用本地模型进行编码</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588413524533249">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588413524533249</a>)</p>
+<p>编码是最好的本地 LLM 用例之一,因为提示通常包括私有代码、延迟问题、迭代频繁、API 成本可以快速增长,并且本地模型可以与编辑器、shell、grep、测试运行器和补丁工作流程集成。</p>
+<p>最强大的本地编码设置不是裸聊天机器人。 它是一个具有代码功能的指令模型,连接到目标存储库上下文、代码库检索、文件路径、相关片段、测试执行和补丁循环。</p>
+<p>保持解码确定性或低温。 要求补丁而不是模糊的建议。 自动运行测试。 保留一小部分真实错误和任务的评估集,以便您可以判断新模型何时真正更好。</p>
+<p>未经审查,请勿让本地模型重写大型代码库。 本地不会使编码代理变得明智。 它只会使上下文私密、循环更便宜、集成更容易控制。</p>
+<h2></h2>
+<p>当地特工需要护栏</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588467572379648">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057588467572379648</a>)</p>
+<p>当本地 LLM 可以使用以下工具时,它会变得更加有用:文件搜索、shell 命令、浏览器自动化、数据库、代码执行、日历、票证系统、内部 API、矢量数据库、家庭自动化、机器人或边缘设备。</p>
+<p>工具的使用改变了安全模型。 出现幻觉的聊天机器人很烦人。 具有文件系统访问权限的代理可以删除内容。 具有浏览器访问权限的代理可能会泄露机密。 具有 shell 访问权限的代理可能会比您读取日志的速度更快地损坏机器。</p>
+<p>本地代理安全分为四层。 通过仅向代理提供其实际需要的目录、API、网络访问和凭据来严格界定代理的范围。 使用沙箱、容器、最低权限用户、破坏性操作的确认以及模式验证的工具参数来约束执行。 将输入视为恶意输入,因为检索到的文档、网页、票证和电子邮件可能包含提示注入。 通过记录工具调用、模型版本、提示和批准来保持审计跟踪,而无需将秘密转储到日志中。</p>
+<p>结构化输出有帮助,但它们不是安全边界。 JSON 模式、约束解码和函数签名使工具调用更容易验证。 他们无法证明模型理解了请求、选择了安全操作或避免了注入指令。</p>
+<p>对于严肃的工具使用,请将策略检查置于模型之外。</p>
+<h2></h2>
+<p>RAG 击败巨型提示</p>
+<p>RAG 表示检索增强生成。 您无需将所有信息塞进提示中,而是从知识库中检索相关块,并仅将这些块提供给模型。</p>
+<p>一个好的本地 RAG 系统通常具有文档提取、解析、分块、嵌入、向量索引、检索、重新排序、提示构建、答案生成、基础检查和评估。 每个阶段都是一个故障点。</p>
+<p>糟糕的解析会将表格变成垃圾。 错误的分块会将答案跨越界限。 错误的检索会返回不相关的段落。 糟糕的重新排名将正确答案埋在第 20 位。 一个好的模型无法从从未收到的证据中可靠地回答。</p>
+<p>大多数糟糕的 RAG 系统并不是因为 LLM 而糟糕的。 由于分块、检索、重新排序和评估,它们很糟糕。</p>
+<p>分块策略是无声杀手。 没有重叠的固定大小的块可能会分裂句子并丢失上下文。 语义分块或带有父文档检索的分层分块通常效果更好,但没有通用的答案。 您必须评估实际文档的块大小、重叠和拆分规则。</p>
+<p>一个好的重新排序器可以挽救平庸的检索。 没有重新排序器可以修复在摄取过程中丢失答案的块。</p>
+<h2></h2>
+<p>文档和知识工作</p>
+<p>对于私人文件,本地 LLM 表现出色:会议记录摘要、合同审查、技术文档问答、研究说明综合、电子邮件起草、政策搜索、内部支持助理和合规工作流程都受益于将源材料靠近拥有它的机器或组织。</p>
+<p>工作流程简单但不宽容。 仔细解析文档,保留页面和部分元数据,进行语义分块,使用嵌入和重新排序器,请求引用,从一般推理的来源中分离答案,并评估引用的忠实度。</p>
+<p>不要假设模型知道文档中的内容。 它只知道您在提示中输入的内容或在上下文中检索的内容。</p>
+<p>对于会议记录,请保留演讲者标签和时间戳。 对于合同审查,按条款或部分进行分块,而不是任意标记计数。 对于技术文档问答,在检索到的块中包含页码或部分锚点,以便模型可以准确地引用来源。</p>
+<p>对于文档工作,您的解析器和检索器与模型一样重要。</p>
+<h2></h2>
+<p>边缘部署</p>
+<p>[</p>
+<p>](<a href="https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057589252796370944">https://x.com/TheAhmadOsman/article/2057590224729911346/media/2057589252796370944</a>)</p>
+<p>小型模型在手机、笔记本电脑、机器人、物联网网关、工厂设备、车辆、医疗设备、离线现场设备和浏览器应用程序上越来越有用。 边缘不仅仅是工作站的一个较小版本。 它有一组不同的约束。</p>
+<p>边缘部署受低内存、低功耗、热限制、间歇性连接、隐私要求、实时延迟、小上下文窗口和可预测的后备行为的影响。 在这些设备上,小型可靠型号优于大型易碎型号。</p>
+<p>实用的边缘设置通常使用 0。5B 到 4B 模型、积极的权重量化、微小提示、固定模式、工具辅助工作流程、本地嵌入、缓存,并且没有不必要的聊天记录。</p>
+<p>当连接性下降时,继续工作的本地模型比失败的大型模型更有价值。 本地人工智能的未来不仅仅是巨型工作站模型。 它也是小型模型,在靠近数据的地方做有用的工作。</p>
+<h2></h2>
+<p>本地法学硕士运行手册</p>
+<p>在信任本地模型进行实际工作之前,请将其用作最后一扇门。</p>
+<p>选择并适合:选择适合任务的模型系列,阅读许可证,确认硬件要求,选择量化级别,并估计全部内存费用。 不要止步于体重尺寸。 包括 KV 缓存、运行时开销、批处理/并发和安全裕度。</p>
+<p>加载和格式:优先选择来自信誉良好的来源的安全传感器或 GGUF,避免不受信任的基于 pickle 的文件,验证标记器和聊天模板,有意设置上下文长度,并为任务选择解码参数。 如果模板错误,则评估无效。</p>
+<p>评估和操作:使用代表性提示进行测试,测量首次令牌和解码速度的时间,跟踪峰值内存,在添加 RAG 之前评估检索,在添加代理之前评估沙盒工具,并且仅在更简单的方法失败后才进行微调。</p>
+<p>对所有重要的内容进行版本控制:模型、量化、运行时、提示、聊天模板、适配器、嵌入模型、重新排序器、评估集和硬件配置文件。 只有当您可以重现所运行的内容时,本地系统才更容易控制。</p>
+<h2></h2>
+<p>微调</p>
+<p>微调通过对附加数据进行训练来改变模型行为。 对于本地用户来说,最重要的方法是LoRA和QLoRA。</p>
+<p>LoRA 冻结基础模型并训练小型低秩适配器权重。 这减少了可训练参数并允许您维护多个轻量级适配器。 QLoRA 通过将冻结的 4 位量化模型微调到 LoRA 适配器中来扩展这一点。</p>
+<p>当您需要一致的写作风格、特定领域的输出格式、重复的分类或提取行为、工具调用格式可靠性、专门的助手角色、RAG 无法解决的领域自适应或在狭窄任务上具有更好的小模型性能时,进行微调。</p>
+<p>不要先进行微调。 尝试以下顺序:正确的聊天模板、更好的提示、更好的模型、更好的解码、RAG、重新排序、小样本示例,然后进行微调。</p>
+<p>大多数看起来模型不了解我的领域的问题实际上是我的提示模糊、我的模板错误或我的检索损坏。</p>
+<p>良好的微调计划包括干净的数据、训练/验证/测试分割、基线评估、明确的目标行为、安全审查、过度拟合检查、回归评估、适配器版本控制、许可证审查和回滚计划。</p>
+<h2></h2>
+<p>开放权重并不意味着开放源</p>
+<p>2026年,“开放模型”一词经常被草率使用。 您应该区分开放权重、源可用、开源和本地兼容。</p>
+<p>开放权重通常意味着您可以下载权重。 这并不自动意味着您可以在商业上使用该模型、自由修改它、训练其输出、以任何规模部署它或忽略归因要求。</p>
+<p>源可用意味着代码或权重可见。 这并不一定意味着许可证是开源的。</p>
+<p>开源人工智能模型是一个更有力的说法。 OSI 的开源 AI 定义将 AI 系统视为包括架构、参数/权重、推理代码以及用于导出参数的足够数据信息和代码。 这比 Hugging Face 上的重量要高得多。</p>
+<p>有些许可证看起来是允许的,但包含限制:没有竞争性使用、没有产出培训、没有超过一定规模的部署、地理排除、归属要求、专利条款或衍生品的类似版权义务。</p>
+<p>规则:在商业使用任何型号之前,请阅读型号卡和许可证。 模型可能非常出色、可下载且可在本地运行,但仍然不适合您的法律或部署限制。</p>
+<h2></h2>
+<p>词汇表</p>
+<p>型号及调校术语</p>
+<ul>
+<li><p>活动参数:在 MoE 模型中,仅针对给定的令牌使用某些参数。 一个模型可能有数千亿个总参数,但每个令牌的活动参数要少得多。</p>
+</li>
+<li><p>适配器:通常通过 LoRA 添加到基础模型的小型可训练模块。</p>
+</li>
+<li><p>基本模型:未经专门调整以用于聊天或指令跟踪的预训练模型。</p>
+</li>
+<li><p>微调:改变目标域或输出风格的模型行为的附加训练。</p>
+</li>
+<li><p>指示模型:根据指示进行调整的模型。</p>
+</li>
+<li><p>LoRA / QLoRA:使用低秩适配器的高效微调方法,通过量化基础模型进行 QLoRA 训练。</p>
+</li>
+<li><p>教育部:专家混合。 一种稀疏架构,每个令牌仅激活选定的专家子网络。</p>
+</li>
+<li><p>权重 / 参数:模型内部学习到的数值。</p>
+</li>
+</ul>
+<p>推理力学</p>
+<ul>
+<li><p>BOS / EOS:序列开始和序列结束令牌。</p>
+</li>
+<li><p>聊天模板:用于表示系统、用户、助手和工具消息的格式。</p>
+</li>
+<li><p>上下文窗口:模型可以同时处理的最大令牌数量。</p>
+</li>
+<li><p>解码:模型逐个生成新令牌的阶段。</p>
+</li>
+<li><p>DFlash:一种 2026 年推测解码方法,使用块扩散进行并行绘图。</p>
+</li>
+<li><p>DDTree / DTree:一种推测解码方法,根据块扩散分布构建草稿树并对其进行有效验证。</p>
+</li>
+<li><p>GQA / MQA:减少 KV 缓存大小并提高推理效率的注意力变体。</p>
+</li>
+<li><p>推理:运行模型以产生输出。</p>
+</li>
+<li><p>KV 缓存:存储先前令牌的键/值注意力状态。</p>
+</li>
+<li><p>预填充:模型在生成之前处理输入提示的阶段。</p>
+</li>
+<li><p>RoPE:旋转位置嵌入,现代 LLM 中常见的一种位置编码方法。</p>
+</li>
+<li><p>推测解码:一种速度技术,其中更便宜的起草者提出代币,目标模型对其进行验证。</p>
+</li>
+<li><p>Tokenizer:将文本转换为令牌 ID 并返回的组件。</p>
+</li>
+<li><p>Top-p / Top-k / 温度:用于令牌生成的采样控制。</p>
+</li>
+</ul>
+<p>检索、文件和服务</p>
+<ul>
+<li><p>AWQ:激活感知权重量化。</p>
+</li>
+<li><p>嵌入模型:将文本转换为用于搜索/检索的向量的模型。</p>
+</li>
+<li><p>FP8 KV 缓存:某些运行时支持的实用 8 位 KV 缓存压缩模式。</p>
+</li>
+<li><p>GGUF:llama。cpp 广泛使用的模型文件格式。</p>
+</li>
+<li><p>PagedAttention:vLLM 风格服务使用的 KV 缓存内存管理技术。</p>
+</li>
+<li><p>量化:降低数值精度以节省内存并提高效率。</p>
+</li>
+<li><p>RAG:检索增强生成。 检索相关的外部上下文并将其提供给模型。</p>
+</li>
+<li><p>Reranker:根据相关性对检索到的段落进行重新排序的模型。</p>
+</li>
+<li><p>Safetensors:一种更安全的张量序列化格式,可避免基于泡菜的执行风险。</p>
+</li>
+</ul>
+<h2></h2>
+<p>最后的话</p>
+<p>本地 LLM 生态系统包括紧凑边缘模型、强大的 7B 至 32B 消费者模型、大型 MoE 开放权重系统、多模态模型、长上下文模型、本地推理模型、成熟的推理运行时以及功能日益强大的私有服务堆栈。</p>
+<p>但基本原理没有改变:模型一次预测一个令牌,令牌不是单词,权重不是整个模型,聊天模板很重要,KV 缓存是隐藏的内存账单,量化是一种权衡,长上下文不是免费的,RAG 质量取决于检索,微调需要评估,本地隐私仍然需要安全纪律。</p>
+<p>您不需要神话来很好地运行本地模型。 您需要知道内存中适合什么、模型期望哪个模板、运行时的行为方式以及您的平均值是否符合您关心的工作。</p>
+<p>本地 LLM 主要是内存数学加上格式化和评估。 如果把这些都做好,堆栈的其余部分就会变得更容易推理。</p>
+
+    </section>
+  </div>
+</body>
+</html>
