@@ -218,7 +218,18 @@ async function renderPremium(
     toc.push({ id, text, level });
   }
 
-  const html = renderPremiumPage("", {
+  // 渲染 markdown 正文 → HTML（用 default 主题，样式由 premium CSS 覆盖）
+  const { html: bodyHtml } = await renderMarkdownDocument(body, {
+    theme: "default",
+    primaryColor: options.primaryColor,
+    fontFamily: options.fontFamily,
+    fontSize: options.fontSize,
+    keepTitle: options.keepTitle ?? false,
+    citeStatus: options.citeStatus ?? false,
+    countStatus: options.countStatus,
+  });
+
+  const html = renderPremiumPage(bodyHtml, {
     title,
     author,
     summary,
