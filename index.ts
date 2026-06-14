@@ -53,6 +53,14 @@ export { parseMarkdown, astToHtml, resetBlockCounter } from "./parser.js";
 export { PluginManager, pluginManager, lazyLoadImagesPlugin, externalLinksPlugin } from "./plugins.js";
 export type { GreyhoundPlugin, PluginHooks } from "./plugins.js";
 
+// 管道
+export { Pipeline, PipelineError } from "./pipeline.js";
+export type { StepResult, ConversionContext } from "./pipeline.js";
+
+// AST 渲染器
+export { renderWithAST } from "./ast-renderer.js";
+export type { AstRenderOptions, AstRenderResult } from "./ast-renderer.js";
+
 // 元数据
 export { extractMetadata } from "./metadata.js";
 
