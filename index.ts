@@ -61,6 +61,14 @@ export type { StepResult, ConversionContext } from "./pipeline.js";
 export { renderWithAST } from "./ast-renderer.js";
 export type { AstRenderOptions, AstRenderResult } from "./ast-renderer.js";
 
+// 组件库
+export { ComponentRegistry, registry } from "./component-registry.js";
+export type { DesignTokens, ComponentDef, ThemeDef } from "./component-registry.js";
+
+// 导出器
+export { EXPORTERS, exportMarkdown, htmlExporter, markdownExporter, pdfExporter } from "./exporters.js";
+export type { Exporter, ExportResult } from "./exporters.js";
+
 // 元数据
 export { extractMetadata } from "./metadata.js";
 

@@ -1,3 +1,196 @@
+专注
+
+:root{
+  --color-critical:#e53e3e; --bg-critical:#fff5f5;
+  --color-warning:#dd6b20; --bg-warning:#fffaf0;
+  --color-info:#3182ce;    --bg-info:#ebf8ff;
+  --color-success:#38a169; --bg-success:#f0fff4;
+  --color-pending:#d69e2e; --bg-pending:#fffff0;
+  --color-accent:#3182ce;
+  --bg-body:#f7fafc; --bg-card:#fff;
+  --color-body:#1a202c; --color-heading:#1a202c;
+  --color-secondary:#4a5568; --color-muted:#718096;
+  --color-border:#e2e8f0; --bg-secondary:#f7fafc; --bg-code:#edf2f7;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --content-width:960px;}
+
+/* ===== 语义颜色 ===== */
+.critical { border-left:4px solid var(--color-critical, #e53e3e); background:var(--bg-critical, #fff5f5); }
+.warning  { border-left:4px solid var(--color-warning, #dd6b20); background:var(--bg-warning, #fffaf0); }
+.info     { border-left:4px solid var(--color-info, #3182ce); background:var(--bg-info, #ebf8ff); }
+.success  { border-left:4px solid var(--color-success, #38a169); background:var(--bg-success, #f0fff4); }
+.pending  { border-left:4px solid var(--color-pending, #d69e2e); background:var(--bg-pending, #fffff0); }
+
+/* ===== 基础 ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body {
+  font-family:var(--font-sans,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif);
+  max-width:var(--content-width,960px); margin:0 auto; padding:24px;
+  background:var(--bg-body,#f7fafc); color:var(--color-body,#1a202c); line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ===== 标题 ===== */
+h1{font-size:2em;margin-bottom:4px;color:var(--color-heading,#1a202c)}
+h2{font-size:1.4em;margin:24px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--color-border,#e2e8f0)}
+h3{font-size:1.1em;margin:16px 0 8px}
+.subtitle{color:var(--color-muted,#718096);font-size:0.95em;margin-bottom:24px}
+
+/* ===== 网格系统 ===== */
+.grid-4{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:16px 0}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin:16px 0}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;margin:16px 0}
+
+/* ===== 卡片 ===== */
+.card,.critical,.warning,.info,.success,.pending{
+  padding:16px;background:var(--bg-card,#fff);border:1px solid var(--color-border,#e2e8f0);
+  border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin:12px 0;
+}
+.card-label{
+  font-size:0.8em;color:var(--color-muted,#718096);text-transform:uppercase;
+  letter-spacing:0.05em;margin-bottom:2px;
+}
+.card-value{font-size:1.6em;font-weight:700;margin:2px 0}
+.card-desc{font-size:0.9em;color:var(--color-secondary,#4a5568)}
+
+/* ===== 折叠 ===== */
+details{margin:8px 0}
+details .critical,details .warning,details .info,details .success,details .pending{margin:8px 0}
+summary{
+  font-weight:600;cursor:pointer;padding:10px 0;
+  font-size:1.05em;user-select:none;
+}
+summary:hover{color:var(--color-accent,#3182ce)}
+
+/* ===== 标签 ===== */
+.tag{display:inline-block;padding:2px 10px;border-radius:4px;font-size:0.8em;font-weight:600;margin:2px}
+.tag-red{background:var(--bg-critical,#fed7d7);color:var(--color-critical,#c53030)}
+.tag-green{background:var(--bg-success,#c6f6d5);color:var(--color-success,#276749)}
+.tag-blue{background:var(--bg-info,#bee3f8);color:var(--color-info,#2b6cb0)}
+.tag-yellow{background:var(--bg-pending,#fefcbf);color:var(--color-pending,#975a16)}
+.tag-purple{background:#e9d8fd;color:#6b46c1}
+
+/* ===== 图表容器 ===== */
+.diagram-box{
+  background:var(--bg-card,#fff);border:1px solid var(--color-border,#e2e8f0);
+  border-radius:10px;padding:20px;margin:16px 0;text-align:center;
+}
+
+/* ===== 代码 ===== */
+code{
+  background:var(--bg-code,#edf2f7);padding:2px 6px;border-radius:4px;
+  font-family:'SF Mono','Fira Code',monospace;font-size:0.9em;
+}
+pre{
+  background:#1a202c;color:#e2e8f0;padding:16px;border-radius:8px;
+  overflow-x:auto;font-size:0.85em;line-height:1.5;
+}
+pre code{background:transparent;padding:0;color:inherit}
+
+/* ===== 表格 ===== */
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.9em}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--color-border,#e2e8f0)}
+th{background:var(--bg-secondary,#f7fafc);font-weight:600;color:var(--color-secondary,#4a5568)}
+tr:hover{background:var(--bg-secondary,#f7fafc)}
+
+/* ===== 引用 ===== */
+blockquote{
+  border-left:3px solid var(--color-info,#3182ce);margin:12px 0;padding:8px 16px;
+  background:var(--bg-info,#ebf8ff);border-radius:0 8px 8px 0;
+  font-style:italic;color:var(--color-body,#2d3748);
+}
+
+/* ===== 步骤卡片 ===== */
+.step{display:flex;gap:16px;align-items:flex-start;margin:12px 0;padding:12px 16px;background:var(--bg-card,#fff);border-radius:8px;border:1px solid var(--color-border,#e2e8f0)}
+.step-num{width:32px;height:32px;background:var(--color-accent,#3182ce);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+
+/* ===== 链接 ===== */
+a{color:var(--color-accent,#3182ce);text-decoration:none}
+a:hover{text-decoration:underline}
+img{max-width:100%;height:auto;border-radius:8px;margin:16px 0}
+
+/* ===== 列表 ===== */
+ul,ol{padding-left:1.5em;margin:8px 0}
+li{margin:4px 0}
+strong{font-weight:600}
+
+/* ===== 打印 ===== */
+@media print{body{font-size:11pt;background:#fff;color:#000}}
+@media(max-width:600px){
+  body{padding:16px}
+  .grid-4,.grid-3,.grid-2{grid-template-columns:1fr}
+  .step{flex-direction:column}
+}
+
+# 专注
+
+  
+  在某些时候,阅读有关 LLM 的内容已经不够了。 您需要自己构建堆栈:首先使用 Tokenizer,然后是嵌入、位置、注意力、Transformer 块、目标、解码、缓存、长上下文、路由、数据、训练后、服务、评估、工具和对齐 / 安全。
+  
+
+  PREMIUM
+  REPORT
+  2026
+
+## 📊 核心指标速览
+
+  
+    核心循环
+    6 步
+    Token → Transformer → Attention → KV Cache → Decode → Repeat
+  
+  
+    推荐 VRAM
+    16-24 GB
+    2026 年本地用户最低舒适层
+  
+  
+    量化甜区
+    Q4-Q5
+    消费级本地部署的最佳权衡
+  
+  
+    关键家族
+    6+
+    Qwen / Gemma / DeepSeek / Mistral / Kimi / Nemotron
+  
+
+## 🔄 推理核心循环
+
+  
+    
+      
+        
+      
+    
+    
+    
+    📝 文本 → Token
+    分词器编码
+    
+    
+    🏗️ Transformer
+    嵌入 + 位置编码
+    
+    
+    👁️ Attention
+    决定哪些 token 重要
+    
+    
+    💾 KV Cache
+    工作内存复用
+    
+    
+    🎯 Decode
+    选择 → 采样 → 输出
+    
+    🔄 重复直到停止条件
+    f(θ, sequence) → probability distribution over next_token
+  
+
+## 📖 详细分析
+
 在某些时候,阅读有关 LLM 的内容已经不够了。 您需要自己构建堆栈:首先使用 Tokenizer,然后是嵌入、位置、注意力、Transformer 块、目标、解码、缓存、长上下文、路由、数据、训练后、服务、评估、工具和对齐 / 安全。
 
 > 基于项目的路线图,将法学硕士基础知识转变为您可以构建、衡量、分解和解释的工作系统。
@@ -229,3 +422,7 @@ RAG 将模型中的参数记忆与外部语料库中的非参数记忆相结合�
 然后构建代理。 构建产品。 建立公司。 建立实验室。
 
 但要把它们建在基岩上。 你未来的自己会感谢你。
+
+  **本地 LLM 主要是内存数学 + 格式化 + 评估**
+
+  专注 · PREMIUM · Generated by markdown-to-html
