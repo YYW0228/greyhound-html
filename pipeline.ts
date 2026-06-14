@@ -130,4 +130,7 @@ export interface ConversionContext {
   backupPath?: string
   contentImages?: any[]
   mermaidImages?: any[]
+
+  // 扩展数据
+  data?: Record<string, any>
 }

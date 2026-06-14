@@ -1,204 +1,104 @@
 // core.ts — 核心转换逻辑（convertMarkdown）
-// 6 步纯函数异步管道：解析 → 元数据 → 预处理 → 渲染 → 保存 → 后处理
+// 使用 Pipeline + AST renderer 替代 baoyu-md 黑盒渲染
 // Skill: markdown-to-html
 
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  parseFrontmatter,
-  preprocessMermaidInMarkdown,
-  renderMarkdownDocument,
-  replaceMarkdownImagesWithPlaceholders,
-  resolveContentImages,
-  serializeFrontmatter,
-} from "baoyu-md";
+// baoyu-md 仅用于 Mermaid 和图片预处理（Chrome CDP 复杂逻辑保留）
+import { parseFrontmatter, preprocessMermaidInMarkdown, replaceMarkdownImagesWithPlaceholders, resolveContentImages } from "baoyu-md";
 import { renderMermaidToPng } from "baoyu-chrome-cdp/mermaid";
 
 import type { ConvertMarkdownOptions, ParsedResult, ImageInfo, MermaidImageInfo } from "./types.js";
 import { extractMetadata } from "./metadata.js";
 import { PREMIUM_THEME_NAMES } from "./constants.js";
 import type { PremiumThemeName } from "./constants.js";
-import { renderPremiumPage } from "./renderer-premium.js";
 import { logger } from "./utils.js";
+import { Pipeline, PipelineError, type ConversionContext } from "./pipeline.js";
+import { renderWithAST } from "./ast-renderer.js";
 
 // ==================================================================
-// Step 1: 读取并解析 Markdown 文件
+// 步骤函数（每个都是 Pipeline 的一个 step）
 // ==================================================================
-interface ParsedMarkdown {
-  content: string;
-  frontmatter: Record<string, any>;
-  body: string;
-  baseDir: string;
-}
 
-async function parseMarkdownFile(markdownPath: string): Promise<ParsedMarkdown> {
-  const content = await fs.readFile(markdownPath, "utf-8");
-  const baseDir = path.dirname(markdownPath);
+async function stepParseFile(ctx: ConversionContext): Promise<void> {
+  const content = await fs.readFile(ctx.markdownPath, "utf-8");
+  const baseDir = path.dirname(ctx.markdownPath);
   const { frontmatter, body } = parseFrontmatter(content);
-  logger.info(`Parsed markdown (${content.length.toLocaleString()} chars)`);
-  return { content, frontmatter, body, baseDir };
+  ctx.rawContent = content;
+  ctx.frontmatter = frontmatter;
+  ctx.body = body;
+  ctx.data = { ...(ctx.data || {}), baseDir };
 }
 
-// ==================================================================
-// Step 3: 预处理 Mermaid + 图片占位符
-// ==================================================================
-interface PreprocessedContent {
-  rewrittenMarkdown: string;
-  contentImages: any[];
-  mermaidImages: MermaidImageInfo[];
+async function stepMetadata(ctx: ConversionContext): Promise<void> {
+  const { title, author, summary } = extractMetadata(
+    ctx.frontmatter || {},
+    ctx.body || "",
+    ctx.options.title,
+    ctx.markdownPath,
+  );
+  ctx.title = title;
+  ctx.author = author;
+  ctx.summary = summary;
 }
 
-async function preprocessContent(
-  body: string,
-  baseDir: string,
-  effectiveFrontmatter: Record<string, any>,
-  options?: ConvertMarkdownOptions,
-): Promise<PreprocessedContent> {
-  const mermaidEnabled = options?.mermaid?.enabled !== false;
-  const mermaidMinWidth = options?.mermaid?.minWidth ?? 860;
+async function stepPreprocess(ctx: ConversionContext): Promise<void> {
+  const body = ctx.body || "";
+  const baseDir = (ctx.data?.baseDir as string) || path.dirname(ctx.markdownPath);
+  const options = ctx.options as ConvertMarkdownOptions;
+
+  const mermaidEnabled = options.mermaid?.enabled !== false;
+  const mermaidMinWidth = options.mermaid?.minWidth ?? 860;
 
   const { markdown: mermaidBody, images: mermaidImages } =
     await preprocessMermaidInMarkdown(body, {
       baseDir,
       renderFn: renderMermaidToPng,
       enabled: mermaidEnabled,
-      theme: options?.mermaid?.theme,
-      scale: options?.mermaid?.scale,
-      background: options?.mermaid?.background,
+      theme: options.mermaid?.theme,
+      scale: options.mermaid?.scale,
+      background: options.mermaid?.background,
       minWidth: mermaidMinWidth,
     });
 
   const { images: placeholderImages, markdown: bodyWithPlaceholders } =
     replaceMarkdownImagesWithPlaceholders(mermaidBody);
 
-  const rewrittenMarkdown = serializeFrontmatter(effectiveFrontmatter) + bodyWithPlaceholders;
-
-  return {
-    rewrittenMarkdown,
-    contentImages: placeholderImages,
-    mermaidImages: mermaidImages.map((m: any) => ({
-      hash: m.hash,
-      localPath: m.localPath,
-      cached: m.cached,
-    })),
-  };
+  ctx.body = bodyWithPlaceholders;
+  ctx.mermaidImages = mermaidImages.map((m: any) => ({
+    hash: m.hash,
+    localPath: m.localPath,
+    cached: m.cached,
+  }));
+  ctx.contentImages = placeholderImages;
 }
 
-// ==================================================================
-// Step 4: 渲染 Markdown → HTML
-// ==================================================================
-async function renderHtml(markdown: string, options?: ConvertMarkdownOptions): Promise<string> {
-  const { html } = await renderMarkdownDocument(markdown, {
-    theme: options?.theme,
-    primaryColor: options?.primaryColor,
-    fontFamily: options?.fontFamily,
-    fontSize: options?.fontSize,
-    keepTitle: options?.keepTitle ?? false,
-    citeStatus: options?.citeStatus ?? false,
-    countStatus: options?.countStatus,
-    codeTheme: options?.codeTheme,
-    isMacCodeBlock: options?.isMacCodeBlock,
-    isShowLineNumber: options?.isShowLineNumber,
-    legend: options?.legend,
-    ...options,
+async function stepRender(ctx: ConversionContext): Promise<void> {
+  const body = ctx.body || "";
+  const options = ctx.options;
+  const theme = (options.theme as string) || "default";
+  const isPremium = (PREMIUM_THEME_NAMES as readonly string[]).includes(theme);
+
+  // 使用 AST 渲染器（替代 baoyu-md 的 renderMarkdownDocument）
+  const { fullHtml } = await renderWithAST(body, {
+    theme,
+    title: ctx.title,
+    author: ctx.author,
+    summary: ctx.summary,
+    keepTitle: options.keepTitle ?? false,
+    citeStatus: options.citeStatus ?? false,
   });
-  return html;
+
+  ctx.html = fullHtml;
 }
 
-// ==================================================================
-// Step 5: 保存 HTML（带备份 + 错误恢复）
-// ==================================================================
-interface SaveResult {
-  htmlPath: string;
-  backupPath?: string;
-}
+async function stepSave(ctx: ConversionContext): Promise<void> {
+  if (!ctx.html) throw new Error("No HTML to save");
 
-async function saveHtmlWithBackup(html: string, targetPath: string): Promise<SaveResult> {
-  let backupPath: string | undefined;
+  const htmlPath = ctx.markdownPath.replace(/\.md$/i, ".html");
 
-  try {
-    await fs.access(targetPath);
-    // file exists → backup
-    backupPath = `${targetPath}.bak-${new Date().toISOString().replace(/[:.]/g, "")}`;
-    await fs.rename(targetPath, backupPath);
-    logger.info(`Backed up existing file → ${backupPath}`);
-  } catch {
-    // file doesn't exist → skip backup
-  }
-
-  await fs.writeFile(targetPath, html, "utf-8");
-  logger.info(`HTML saved → ${targetPath}`);
-
-  return { htmlPath: targetPath, backupPath };
-}
-
-/** 转换失败时自动恢复备份 */
-export async function restoreBackup(htmlPath: string, backupPath?: string): Promise<void> {
-  if (!backupPath) return;
-  try {
-    await fs.copyFile(backupPath, htmlPath);
-    logger.warn(`Restored backup: ${backupPath} → ${htmlPath}`);
-  } catch {
-    logger.error(`Failed to restore backup: ${backupPath}`);
-  }
-}
-
-// ==================================================================
-// Step 6: 图片后处理（占位符 → 真实引用）
-// ==================================================================
-async function postProcessImages(
-  htmlPath: string,
-  contentImages: any[],
-  baseDir: string,
-): Promise<ImageInfo[]> {
-  if (!contentImages.length) return [];
-
-  const hasRemote = contentImages.some((i: any) =>
-    /^https?:\/\//.test(i.originalPath),
-  );
-  const tempDir = hasRemote
-    ? await fs.mkdtemp(path.join(os.tmpdir(), "md-to-html-"))
-    : baseDir;
-
-  const resolvedImages: ImageInfo[] = await resolveContentImages(
-    contentImages,
-    baseDir,
-    tempDir,
-    "markdown-to-html",
-  );
-
-  let content = await fs.readFile(htmlPath, "utf-8");
-  for (const img of resolvedImages) {
-    const alt = img.alt ? ` alt="${img.alt.replace(/"/g, "&quot;")}"` : "";
-    const tag = `<img src="${img.originalPath}" data-local-path="${img.localPath}"${alt} style="display: block; width: 100%; margin: 1.5em auto;">`;
-    content = content.replace(img.placeholder, tag);
-  }
-  await fs.writeFile(htmlPath, content, "utf-8");
-
-  return resolvedImages;
-}
-
-// ==================================================================
-// Premium 主题渲染管道（替代 baoyu-md 渲染）
-// ==================================================================
-async function renderPremium(
-  absolutePath: string,
-  body: string,
-  frontmatter: Record<string, any>,
-  options: ConvertMarkdownOptions,
-): Promise<ParsedResult> {
-  const { title, author, summary } = extractMetadata(
-    frontmatter,
-    body,
-    options.title,
-    absolutePath,
-  );
-
-  const htmlPath = absolutePath.replace(/\.md$/i, ".html");
-
-  // 备份
   let backupPath: string | undefined;
   try {
     await fs.access(htmlPath);
@@ -206,108 +106,93 @@ async function renderPremium(
     await fs.rename(htmlPath, backupPath);
   } catch { /* no existing file */ }
 
-  // 构建 TOC
-  const toc: Array<{ id: string; text: string; level: number }> = [];
-  const headingRe = /^(#{1,6})\s+(.+)$/gm;
-  let m: RegExpExecArray | null;
-  while ((m = headingRe.exec(body)) !== null) {
-    const level = m[1].length;
-    const text = m[2].trim();
-    if (!text) continue;
-    const id = text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "");
-    toc.push({ id, text, level });
-  }
-
-  // 渲染 markdown 正文 → HTML（用 default 主题，样式由 premium CSS 覆盖）
-  const { html: bodyHtml } = await renderMarkdownDocument(body, {
-    theme: "default",
-    primaryColor: options.primaryColor,
-    fontFamily: options.fontFamily,
-    fontSize: options.fontSize,
-    keepTitle: options.keepTitle ?? false,
-    citeStatus: options.citeStatus ?? false,
-    countStatus: options.countStatus,
-  });
-
-  const html = renderPremiumPage(bodyHtml, {
-    title,
-    author,
-    summary,
-    theme: options.theme as PremiumThemeName,
-    toc,
-  });
-
-  await fs.writeFile(htmlPath, html, "utf-8");
+  await fs.writeFile(htmlPath, ctx.html, "utf-8");
+  ctx.htmlPath = htmlPath;
+  ctx.backupPath = backupPath;
   logger.info(`HTML saved → ${htmlPath}`);
+}
 
-  return { title, author, summary, htmlPath, backupPath, contentImages: [], mermaidImages: [] };
+async function stepPostProcess(ctx: ConversionContext): Promise<void> {
+  const images = ctx.contentImages || [];
+  if (!images.length) return;
+
+  const htmlPath = ctx.htmlPath;
+  if (!htmlPath) return;
+
+  const baseDir = (ctx.data?.baseDir as string) || path.dirname(ctx.markdownPath);
+  const hasRemote = images.some((i: any) => /^https?:\/\//.test(i.originalPath));
+  const tempDir = hasRemote
+    ? await fs.mkdtemp(path.join(os.tmpdir(), "md-to-html-"))
+    : baseDir;
+
+  const resolved = await resolveContentImages(images, baseDir, tempDir, "markdown-to-html");
+
+  let content = await fs.readFile(htmlPath, "utf-8");
+  for (const img of resolved) {
+    const alt = img.alt ? ` alt="${img.alt.replace(/"/g, "&quot;")}"` : "";
+    const tag = `<img src="${img.originalPath}" data-local-path="${img.localPath}"${alt} style="display:block;width:100%;margin:1.5em auto;">`;
+    content = content.replace(img.placeholder, tag);
+  }
+  await fs.writeFile(htmlPath, content, "utf-8");
 }
 
 // ==================================================================
-// 主入口：convertMarkdown — 6 步编排
+// 主入口
 // ==================================================================
+
 export async function convertMarkdown(
   markdownPath: string,
   options: ConvertMarkdownOptions = {},
 ): Promise<ParsedResult> {
   const absolutePath = path.resolve(markdownPath);
-  logger.info(`Converting: ${absolutePath}`);
 
-  // Step 1: 解析文件
-  const { frontmatter, body, baseDir } = await parseMarkdownFile(absolutePath);
+  const ctx: ConversionContext = {
+    markdownPath: absolutePath,
+    rawContent: "",
+    options: options as Record<string, any>,
+  };
 
-  // 判断是否 premium 主题
-  const theme = options.theme as string | undefined;
-  if (theme && (PREMIUM_THEME_NAMES as readonly string[]).includes(theme)) {
-    return renderPremium(absolutePath, body, frontmatter, options);
-  }
-
-  // Step 2: 元数据
-  const { title, author, summary, effectiveFrontmatter } = extractMetadata(
-    frontmatter,
-    body,
-    options.title,
-    absolutePath,
-  );
-
-  // Step 3: Mermaid + 图片预处理
-  const { rewrittenMarkdown, contentImages, mermaidImages } = await preprocessContent(
-    body,
-    baseDir,
-    effectiveFrontmatter,
-    options,
-  );
-
-  // Step 4: 渲染 HTML
-  logger.info(`Rendering theme: ${options.theme ?? "default"}`);
-  const html = await renderHtml(rewrittenMarkdown, options);
-
-  // Step 5: 保存（带备份）
-  const htmlPath = absolutePath.replace(/\.md$/i, ".html");
-  let saveResult: SaveResult;
   try {
-    saveResult = await saveHtmlWithBackup(html, htmlPath);
+    const pipe = new Pipeline<ConversionContext>()
+      .add("parse", stepParseFile, true)
+      .add("metadata", stepMetadata, true)
+      .add("preprocess", stepPreprocess, false)   // Mermaid 失败不中止
+      .add("render", stepRender, true)
+      .add("save", stepSave, true)
+      .add("images", stepPostProcess, false);     // 图片失败不中止
+
+    await pipe.run(ctx);
+
+    // 成功后清理备份
+    if (ctx.backupPath) {
+      try { await fs.unlink(ctx.backupPath); } catch { /* ignore */ }
+    }
+
+    return {
+      title: ctx.title || "",
+      author: ctx.author || "",
+      summary: ctx.summary || "",
+      htmlPath: ctx.htmlPath || "",
+      backupPath: ctx.backupPath,
+      contentImages: (ctx.contentImages || []) as ImageInfo[],
+      mermaidImages: (ctx.mermaidImages || []) as MermaidImageInfo[],
+    };
   } catch (err) {
-    logger.error(`Failed to save HTML: ${err}`);
+    // 错误恢复：自动还原备份
+    if (ctx.htmlPath && ctx.backupPath) {
+      try {
+        await fs.copyFile(ctx.backupPath, ctx.htmlPath);
+        logger.warn(`Restored backup: ${ctx.backupPath} → ${ctx.htmlPath}`);
+      } catch { /* best effort */ }
+    }
     throw err;
   }
+}
 
-  // Step 6: 图片后处理
-  let resolvedImages: ImageInfo[] = [];
+/** 外部可用的错误恢复函数 */
+export async function restoreBackup(htmlPath: string, backupPath?: string): Promise<void> {
+  if (!backupPath) return;
   try {
-    resolvedImages = await postProcessImages(saveResult.htmlPath, contentImages, baseDir);
-  } catch (err) {
-    logger.warn(`Image post-processing failed: ${err}`);
-    // 非致命 — 继续返回结果
-  }
-
-  return {
-    title,
-    author,
-    summary,
-    htmlPath: saveResult.htmlPath,
-    backupPath: saveResult.backupPath,
-    contentImages: resolvedImages,
-    mermaidImages,
-  };
+    await fs.copyFile(backupPath, htmlPath);
+  } catch { /* best effort */ }
 }
