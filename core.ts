@@ -17,6 +17,9 @@ import { renderMermaidToPng } from "baoyu-chrome-cdp/mermaid";
 
 import type { ConvertMarkdownOptions, ParsedResult } from "./types.js";
 import { extractMetadata } from "./metadata.js";
+import { PREMIUM_THEME_NAMES } from "./constants.js";
+import { renderPremiumPage } from "./renderer-premium.js";
+import type { PremiumThemeName } from "./constants.js";
 
 // ---- 内部辅助 ----
 
@@ -91,6 +94,51 @@ export async function convertMarkdown(
     options.title,
     absolutePath,
   );
+
+  // 2b. 高级主题走自定义渲染管道
+  const theme = options.theme as string | undefined
+  if (theme && (PREMIUM_THEME_NAMES as readonly string[]).includes(theme)) {
+    const htmlPath = absolutePath.replace(/\.md$/i, ".html");
+
+    // 先做备份
+    let backupPath: string | undefined
+    const exists = await fs.stat(htmlPath).then(() => true).catch(() => false)
+    if (exists) {
+      backupPath = `${htmlPath}.bak-${new Date().toISOString().replace(/[:.]/g, "")}`
+      await fs.rename(htmlPath, backupPath)
+    }
+
+    // 构建 toc
+    const toc: Array<{id:string; text:string; level:number}> = []
+    const headingRe = /^(#{1,6})\s*(.+)$/gm
+    let m: RegExpExecArray | null
+    while ((m = headingRe.exec(body)) !== null) {
+      const level = m[1].length
+      let text = m[2].trim()
+      if (!text) continue  // 跳过空标题行
+      const id = text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,"-").replace(/^-|-$/g,"")
+      toc.push({ id, text, level })
+    }
+
+    const html = renderPremiumPage("", {
+      title,
+      author,
+      summary,
+      theme: theme as PremiumThemeName,
+      toc,
+    })
+
+    await fs.writeFile(htmlPath, html, "utf-8")
+    console.error(`[markdown-to-html] HTML saved → ${htmlPath}`)
+
+    return {
+      title, author, summary,
+      htmlPath,
+      backupPath,
+      contentImages: [],
+      mermaidImages: [],
+    }
+  }
 
   // 3. Mermaid 渲染 + 图片占位符预处理
   const { markdown: mermaidBody, images: mermaidImages } =

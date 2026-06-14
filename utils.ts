@@ -2,7 +2,7 @@
 // Skill: markdown-to-html
 
 import process from "node:process";
-import { THEME_NAMES, COLOR_NAMES, FONT_FAMILY_MAP, FONT_SIZE_OPTIONS, MERMAID_THEMES } from "./constants.js";
+import { ALL_THEME_NAMES, COLOR_NAMES, FONT_FAMILY_MAP, FONT_SIZE_OPTIONS, MERMAID_THEMES } from "./constants.js";
 
 /** 打印 help 信息并退出 */
 export function printUsage(exitCode = 0) {
@@ -13,7 +13,7 @@ Usage:
   bun main.ts <markdown_file> [options]
 
 Options:
-  --theme <name>         Theme: ${THEME_NAMES.join(", ")} (default: default)
+  --theme <name>         Theme: ${ALL_THEME_NAMES.join(", ")} (default: default)
   --color <name|hex>     Primary color: ${COLOR_NAMES.join(", ")} or hex (default: blue)
   --font-family <name>   Font: ${Object.keys(FONT_FAMILY_MAP).join(", ")} or CSS value
   --font-size <N>        Font size: ${FONT_SIZE_OPTIONS.join(", ")} (default: 16)

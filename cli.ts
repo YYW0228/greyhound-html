@@ -1,9 +1,11 @@
 // cli.ts — CLI 参数解析、help、子命令逻辑
 // Skill: markdown-to-html
+// 支持：基础主题（baoyu-md）+ 高级主题（premium/mckinsey/wsj/blackrock）
 
 import { parseArgs } from "baoyu-md";
 import { printUsage } from "./utils.js";
 import type { ConvertMarkdownOptions } from "./types.js";
+import { PREMIUM_THEME_NAMES } from "./constants.js";
 
 export interface CliResult {
   markdownPath: string;
@@ -13,9 +15,7 @@ export interface CliResult {
 
 /**
  * 解析 CLI 参数
- * 支持: bun main.ts <file> [options]
- *       bun main.ts --watch <file>
- *       bun main.ts --help
+ * 对 premium 系列主题，跳过 baoyu-md 的 parseArgs 以避免未知主题错误
  */
 export function parseCliArgs(argv: string[]): CliResult {
   if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
@@ -23,49 +23,68 @@ export function parseCliArgs(argv: string[]): CliResult {
   }
 
   let watch = false;
-  const filtered: string[] = [];
+  let theme = "default";
+  let color = "blue";
+  let title: string | undefined;
+  let keepTitle = false;
+  let citeStatus = false;
+  let markdownPath = "";
 
-  for (const arg of argv) {
+  // 先过一遍参数，提取我们关心的关键项
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
     if (arg === "--watch" || arg === "-w") {
       watch = true;
-    } else {
-      filtered.push(arg);
+    } else if (arg === "--theme" && i + 1 < argv.length) {
+      theme = argv[++i];
+    } else if (arg === "--color" && i + 1 < argv.length) {
+      color = argv[++i];
+    } else if (arg === "--title" && i + 1 < argv.length) {
+      title = argv[++i];
+    } else if (arg === "--keep-title") {
+      keepTitle = true;
+    } else if (arg === "--cite") {
+      citeStatus = true;
+    } else if (!arg.startsWith("--") && !markdownPath) {
+      markdownPath = arg;
     }
   }
 
-  if (filtered.length === 0) {
+  if (!markdownPath) {
     console.error("[markdown-to-html] Error: missing markdown file path");
     printUsage(1);
   }
 
-  // parseArgs 需要完整 argv（文件路径 + flags）
-  const rawOptions: Record<string, any> = parseArgs(filtered) ?? {};
+  const isPremium = (PREMIUM_THEME_NAMES as readonly string[]).includes(theme);
+  const options: ConvertMarkdownOptions = {
+    title,
+    theme,
+    primaryColor: color,
+    keepTitle,
+    citeStatus,
+  };
 
-  const markdownPath = rawOptions.inputPath || filtered[0]!;
+  // 高级主题：跳过 baoyu-md 的 parseArgs，它不认可这些主题名
+  if (isPremium) {
+    return { markdownPath, options, watch };
+  }
 
-  const mermaid = {
+  // 基础主题：走 baoyu-md 的标准解析获取所有参数
+  const rawOptions: Record<string, any> = parseArgs(argv) ?? {};
+
+  options.fontFamily = rawOptions.fontFamily;
+  options.fontSize = rawOptions.fontSize;
+  options.countStatus = rawOptions.countStatus;
+  options.codeTheme = rawOptions.codeTheme;
+  options.isMacCodeBlock = rawOptions.macCodeBlock;
+  options.isShowLineNumber = rawOptions.showLineNumber;
+  options.legend = rawOptions.legend;
+  options.mermaid = {
     enabled: rawOptions.noMermaid !== true,
     theme: rawOptions.mermaidTheme,
     scale: rawOptions.mermaidScale,
     minWidth: rawOptions.mermaidWidth,
     background: rawOptions.mermaidBg,
-  };
-
-  const options: ConvertMarkdownOptions = {
-    title: rawOptions.title,
-    theme: rawOptions.theme,
-    primaryColor: rawOptions.color,
-    fontFamily: rawOptions.fontFamily,
-    fontSize: rawOptions.fontSize,
-    keepTitle: rawOptions.keepTitle,
-    citeStatus: rawOptions.cite,
-    countStatus: rawOptions.count,
-    codeTheme: rawOptions.codeTheme,
-    isMacCodeBlock: rawOptions.macCodeBlock,
-    isShowLineNumber: rawOptions.showLineNumber,
-    legend: rawOptions.legend,
-    ...rawOptions,
-    mermaid,
   };
 
   return { markdownPath, options, watch };

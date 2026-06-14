@@ -1,9 +1,16 @@
 // constants.ts — 常量、预设、主题色板
 // Skill: markdown-to-html
 
-/** 主题名称列表 */
+/** 基础主题名称列表（baoyu-md 原生主题） */
 export const THEME_NAMES = ["default", "grace", "simple", "modern"] as const;
 export type ThemeName = (typeof THEME_NAMES)[number];
+
+/** 高级主题名称列表（自定义 premium 主题） */
+export const PREMIUM_THEME_NAMES = ["premium", "mckinsey", "wsj", "blackrock"] as const;
+export type PremiumThemeName = (typeof PREMIUM_THEME_NAMES)[number];
+
+/** 全部主题名称联合 */
+export const ALL_THEME_NAMES = [...THEME_NAMES, ...PREMIUM_THEME_NAMES] as const;
 
 /** 颜色预设：名称 → Hex */
 export const COLOR_PRESETS: Record<string, string> = {
