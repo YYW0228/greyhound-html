@@ -44,6 +44,15 @@ export {
 } from "./utils.js";
 export type { LogLevel } from "./utils.js";
 
+// AST / 解析器
+export type { Block, DocumentAST, DocumentMeta, Section, BlockType } from "./ast.js";
+export { createAST, addBlock, buildSections, flattenSections } from "./ast.js";
+export { parseMarkdown, astToHtml, resetBlockCounter } from "./parser.js";
+
+// 插件系统
+export { PluginManager, pluginManager, lazyLoadImagesPlugin, externalLinksPlugin } from "./plugins.js";
+export type { GreyhoundPlugin, PluginHooks } from "./plugins.js";
+
 // 元数据
 export { extractMetadata } from "./metadata.js";
 
