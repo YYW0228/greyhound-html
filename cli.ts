@@ -1,4 +1,7 @@
-// cli.ts — Arg parser (standalone, no baoyu-md dependency)
+// cli.ts — CLI 参数解析、help、子命令逻辑
+// Skill: markdown-to-html
+
+import { parseArgs } from "baoyu-md";
 import { printUsage } from "./utils.js";
 import type { ConvertMarkdownOptions } from "./types.js";
 
@@ -6,76 +9,64 @@ export interface CliResult {
   markdownPath: string;
   options: ConvertMarkdownOptions;
   watch: boolean;
-  mode: "convert" | "report";
 }
 
-/** Minimal key=value / --flag parser for custom options */
+/**
+ * 解析 CLI 参数
+ * 支持: bun main.ts <file> [options]
+ *       bun main.ts --watch <file>
+ *       bun main.ts --help
+ */
 export function parseCliArgs(argv: string[]): CliResult {
   if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
     printUsage(0);
   }
 
-  // 检测子命令
-  let mode: "convert" | "report" = "convert";
-  let args = argv;
+  let watch = false;
+  const filtered: string[] = [];
 
-  if (argv[0] === "report") {
-    mode = "report";
-    args = argv.slice(1);
-  }
-
-  if (args.length === 0) {
-    printUsage(0);
-  }
-
-  const markdownPath = args[0]!;
-  const raw = args.slice(1);
-
-  const opts: Record<string, string | boolean> = {};
-  for (let i = 0; i < raw.length; i++) {
-    const arg = raw[i]!;
-    if (arg.startsWith("--")) {
-      const eqIdx = arg.indexOf("=");
-      if (eqIdx !== -1) {
-        opts[arg.slice(2, eqIdx)] = arg.slice(eqIdx + 1);
-      } else {
-        const next = raw[i + 1];
-        if (next && !next.startsWith("--")) {
-          opts[arg.slice(2)] = next;
-          i++;
-        } else {
-          opts[arg.slice(2)] = true;
-        }
-      }
-    } else if (arg.startsWith("-") && arg.length === 2) {
-      opts[arg.slice(1)] = true;
+  for (const arg of argv) {
+    if (arg === "--watch" || arg === "-w") {
+      watch = true;
+    } else {
+      filtered.push(arg);
     }
   }
 
-  const watch = opts.watch === true || opts.w === true;
+  if (filtered.length === 0) {
+    console.error("[markdown-to-html] Error: missing markdown file path");
+    printUsage(1);
+  }
+
+  // parseArgs 需要完整 argv（文件路径 + flags）
+  const rawOptions: Record<string, any> = parseArgs(filtered) ?? {};
+
+  const markdownPath = rawOptions.inputPath || filtered[0]!;
 
   const mermaid = {
-    enabled: opts.noMermaid !== true,
-    theme: opts.mermaidTheme as string | undefined,
-    scale: opts.mermaidScale ? Number(opts.mermaidScale) : undefined,
-    minWidth: opts.mermaidWidth ? Number(opts.mermaidWidth) : undefined,
-    background: opts.mermaidBg as string | undefined,
+    enabled: rawOptions.noMermaid !== true,
+    theme: rawOptions.mermaidTheme,
+    scale: rawOptions.mermaidScale,
+    minWidth: rawOptions.mermaidWidth,
+    background: rawOptions.mermaidBg,
   };
 
   const options: ConvertMarkdownOptions = {
-    title: opts.title as string | undefined,
-    theme: opts.theme as string | undefined,
-    primaryColor: opts.color as string | undefined,
-    fontFamily: opts.fontFamily as string | undefined,
-    fontSize: opts.fontSize as string | undefined,
-    keepTitle: opts.keepTitle === true,
-    citeStatus: opts.cite === true,
-    countStatus: opts.count === true,
-    codeTheme: opts.codeTheme as string | undefined,
-    isShowLineNumber: opts.lineNumber === true,
-    legend: opts.legend as string | undefined,
+    title: rawOptions.title,
+    theme: rawOptions.theme,
+    primaryColor: rawOptions.color,
+    fontFamily: rawOptions.fontFamily,
+    fontSize: rawOptions.fontSize,
+    keepTitle: rawOptions.keepTitle,
+    citeStatus: rawOptions.cite,
+    countStatus: rawOptions.count,
+    codeTheme: rawOptions.codeTheme,
+    isMacCodeBlock: rawOptions.macCodeBlock,
+    isShowLineNumber: rawOptions.showLineNumber,
+    legend: rawOptions.legend,
+    ...rawOptions,
     mermaid,
   };
 
-  return { markdownPath, options, watch, mode };
+  return { markdownPath, options, watch };
 }

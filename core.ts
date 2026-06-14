@@ -1,44 +1,63 @@
-// core.ts — 核心转换流水线（自实现，不依赖 baoyu）
-import * as fs from "node:fs/promises";
-import * as os from "node:os";
-import * as path from "node:path";
+// core.ts — 核心转换逻辑（convertMarkdown）
+// Skill: markdown-to-html
 
-import { parseFrontmatter } from "./frontmatter.js";
-import { preprocessMermaidInMarkdown } from "./mermaid.js";
-import { renderMarkdownDocument } from "./renderer.js";
-import { replaceMarkdownImagesWithPlaceholders, resolveContentImages } from "./images.js";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
+import {
+  parseFrontmatter,
+  preprocessMermaidInMarkdown,
+  renderMarkdownDocument,
+  replaceMarkdownImagesWithPlaceholders,
+  resolveContentImages,
+  serializeFrontmatter,
+} from "baoyu-md";
+import { renderMermaidToPng } from "baoyu-chrome-cdp/mermaid";
 
 import type { ConvertMarkdownOptions, ParsedResult } from "./types.js";
-import { extractMetadata, serializeFrontmatter } from "./metadata.js";
+import { extractMetadata } from "./metadata.js";
 
-const LOG = "[greyhound-html]";
-const PLACEHOLDER_PREFIX = "%%img-";
+// ---- 内部辅助 ----
 
-async function saveHtmlWithBackup(html: string, targetPath: string) {
+async function saveHtmlWithBackup(
+  html: string,
+  targetPath: string,
+): Promise<{ htmlPath: string; backupPath?: string }> {
   let backupPath: string | undefined;
-  const exists = await fs.stat(targetPath).then(() => true).catch(() => false);
+  const exists = await fs
+    .stat(targetPath)
+    .then(() => true)
+    .catch(() => false);
+
   if (exists) {
     backupPath = `${targetPath}.bak-${new Date().toISOString().replace(/[:.]/g, "")}`;
     await fs.rename(targetPath, backupPath);
-    console.error(`${LOG} Backed up: ${backupPath}`);
+    console.error(`[markdown-to-html] Backed up: ${backupPath}`);
   }
+
   await fs.writeFile(targetPath, html, "utf-8");
-  console.error(`${LOG} HTML saved → ${targetPath}`);
+  console.error(`[markdown-to-html] HTML saved → ${targetPath}`);
   return { htmlPath: targetPath, backupPath };
 }
 
 async function postProcessImages(
   htmlPath: string,
   placeholderImages: any[],
-  baseDir: string
+  baseDir: string,
 ) {
-  const hasRemote = placeholderImages.some(i => /^https?:\/\//.test(i.originalPath));
+  const hasRemote = placeholderImages.some((i) =>
+    /^https?:\/\//.test(i.originalPath),
+  );
   const tempDir = hasRemote
-    ? await fs.mkdtemp(path.join(os.tmpdir(), "greyhound-html-"))
+    ? await fs.mkdtemp(path.join(os.tmpdir(), "md-to-html-"))
     : baseDir;
 
   const resolvedImages = await resolveContentImages(
-    placeholderImages, baseDir, tempDir, "greyhound-html"
+    placeholderImages,
+    baseDir,
+    tempDir,
+    "markdown-to-html",
   );
 
   let content = await fs.readFile(htmlPath, "utf-8");
@@ -47,13 +66,16 @@ async function postProcessImages(
     const tag = `<img src="${img.originalPath}" data-local-path="${img.localPath}"${alt} style="display: block; width: 100%; margin: 1.5em auto;">`;
     content = content.replace(img.placeholder, tag);
   }
+
   await fs.writeFile(htmlPath, content, "utf-8");
   return resolvedImages;
 }
 
+// ---- 公开 API ----
+
 export async function convertMarkdown(
   markdownPath: string,
-  options: ConvertMarkdownOptions = {}
+  options: ConvertMarkdownOptions = {},
 ): Promise<ParsedResult> {
   const absolutePath = path.resolve(markdownPath);
   const baseDir = path.dirname(absolutePath);
@@ -67,13 +89,14 @@ export async function convertMarkdown(
     frontmatter,
     body,
     options.title,
-    absolutePath
+    absolutePath,
   );
 
-  // 3. Mermaid + 图片占位符预处理
+  // 3. Mermaid 渲染 + 图片占位符预处理
   const { markdown: mermaidBody, images: mermaidImages } =
     await preprocessMermaidInMarkdown(body, {
       baseDir,
+      renderFn: renderMermaidToPng,
       enabled: options.mermaid?.enabled !== false,
       theme: options.mermaid?.theme,
       scale: options.mermaid?.scale,
@@ -82,7 +105,7 @@ export async function convertMarkdown(
     });
 
   const { images: placeholderImages, markdown: bodyWithPlaceholders } =
-    replaceMarkdownImagesWithPlaceholders(mermaidBody, PLACEHOLDER_PREFIX);
+    replaceMarkdownImagesWithPlaceholders(mermaidBody);
 
   const rewrittenMarkdown =
     serializeFrontmatter(effectiveFrontmatter) + bodyWithPlaceholders;
@@ -92,23 +115,30 @@ export async function convertMarkdown(
     theme: options.theme,
     primaryColor: options.primaryColor,
     fontFamily: options.fontFamily,
-    fontSize: options.fontSize != null ? String(options.fontSize) : undefined,
+    fontSize: options.fontSize,
     keepTitle: options.keepTitle ?? false,
     citeStatus: options.citeStatus ?? false,
     countStatus: options.countStatus,
     codeTheme: options.codeTheme,
+    isMacCodeBlock: options.isMacCodeBlock,
     isShowLineNumber: options.isShowLineNumber,
+    legend: options.legend,
+    // 其他选项透传
+    ...options,
   });
 
-  // 5. 保存
+  // 5. 保存（带备份）
   const htmlPath = absolutePath.replace(/\.md$/i, ".html");
   const { htmlPath: finalHtmlPath, backupPath } = await saveHtmlWithBackup(
-    html, htmlPath
+    html,
+    htmlPath,
   );
 
   // 6. 图片后处理
   const contentImages = await postProcessImages(
-    finalHtmlPath, placeholderImages, baseDir
+    finalHtmlPath,
+    placeholderImages,
+    baseDir,
   );
 
   return {
@@ -118,7 +148,7 @@ export async function convertMarkdown(
     htmlPath: finalHtmlPath,
     backupPath,
     contentImages,
-    mermaidImages: mermaidImages.map(m => ({
+    mermaidImages: mermaidImages.map((m) => ({
       hash: m.hash,
       localPath: m.localPath,
       cached: m.cached,

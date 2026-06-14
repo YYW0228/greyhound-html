@@ -1,23 +1,26 @@
-// metadata.ts — 元数据提取（自实现，不依赖 baoyu-md）
-import * as path from "node:path";
+// metadata.ts — 元数据提取
+// Skill: markdown-to-html
 
-import { extractSummaryFromBody, extractTitleFromMarkdown } from "./content-utils.js";
-import { serializeFrontmatter, stripWrappingQuotes } from "./frontmatter.js";
+import path from "node:path";
+import {
+  extractSummaryFromBody,
+  extractTitleFromMarkdown,
+  parseFrontmatter,
+  serializeFrontmatter,
+  stripWrappingQuotes,
+} from "baoyu-md";
 
 export function extractMetadata(
-  frontmatter: any,
+  frontmatter: Record<string, any>,
   body: string,
   optionsTitle: string | undefined,
-  markdownPath: string
+  markdownPath: string,
 ) {
-  let title =
+  const title =
     stripWrappingQuotes(optionsTitle ?? "") ||
     stripWrappingQuotes(frontmatter.title ?? "") ||
-    extractTitleFromMarkdown(body);
-
-  if (!title) {
-    title = path.basename(markdownPath, path.extname(markdownPath));
-  }
+    extractTitleFromMarkdown(body) ||
+    path.basename(markdownPath, path.extname(markdownPath));
 
   const author = stripWrappingQuotes(frontmatter.author ?? "");
   const summary =
