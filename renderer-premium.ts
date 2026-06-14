@@ -1,6 +1,6 @@
 // renderer-premium.ts — 高级主题 HTML 渲染器
-// 编码了 McKinsey 设计规则：标题重构 + 视觉隐喻 + 构图规则
-// Skill: markdown-to-html
+// 核心逻辑提取自用户最喜欢的版本: /Users/mac/local-llm-guide-report.html
+// 所有主题共用 BASE CSS，仅通过 CSS 变量切换颜色
 
 import { THEMES } from "./themes.js"
 import type { PremiumThemeName } from "./constants.js"
@@ -13,283 +13,325 @@ export interface RenderOptions {
   toc: Array<{ id: string; text: string; level: number }>
 }
 
-// ================================================================
-// McKinsey 设计规则引擎
-// ================================================================
+// ===== 基础 CSS（所有主题共享） =====
+const BASE_CSS = `
+/* ===== 语义颜色 ===== */
+.critical { border-left:4px solid var(--color-critical, #e53e3e); background:var(--bg-critical, #fff5f5); }
+.warning  { border-left:4px solid var(--color-warning, #dd6b20); background:var(--bg-warning, #fffaf0); }
+.info     { border-left:4px solid var(--color-info, #3182ce); background:var(--bg-info, #ebf8ff); }
+.success  { border-left:4px solid var(--color-success, #38a169); background:var(--bg-success, #f0fff4); }
+.pending  { border-left:4px solid var(--color-pending, #d69e2e); background:var(--bg-pending, #fffff0); }
 
-/** 从长标题中提炼核心词（A层：主视觉核心词） */
-function extractCoreWord(title: string): string {
-  // 移除中英文冒号、破折号后的部分（通常是副标题）
-  let core = title.replace(/[：:].*$/, "").replace(/[-—–].*$/, "").trim()
-  // 如果太短则返回原标题
-  if (core.length <= 4) return core
-  // 如果太长，从结尾截取最有冲击力的 2-6 个字
-  // 优先截取最后的实义词组
-  const segments = core.split(/[·・\s,，、]/)
-  if (segments.length > 1) {
-    // 取最后一个有意义的片段
-    for (let i = segments.length - 1; i >= 0; i--) {
-      const s = segments[i].trim()
-      if (s && s.length >= 2 && s.length <= 8) return s
-    }
+/* ===== 基础 ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body {
+  font-family:var(--font-sans,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif);
+  max-width:var(--content-width,960px); margin:0 auto; padding:24px;
+  background:var(--bg-body,#f7fafc); color:var(--color-body,#1a202c); line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ===== 标题 ===== */
+h1{font-size:2em;margin-bottom:4px;color:var(--color-heading,#1a202c)}
+h2{font-size:1.4em;margin:24px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--color-border,#e2e8f0)}
+h3{font-size:1.1em;margin:16px 0 8px}
+.subtitle{color:var(--color-muted,#718096);font-size:0.95em;margin-bottom:24px}
+
+/* ===== 网格系统 ===== */
+.grid-4{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:16px 0}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin:16px 0}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;margin:16px 0}
+
+/* ===== 卡片 ===== */
+.card,.critical,.warning,.info,.success,.pending{
+  padding:16px;background:var(--bg-card,#fff);border:1px solid var(--color-border,#e2e8f0);
+  border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin:12px 0;
+}
+.card-label{
+  font-size:0.8em;color:var(--color-muted,#718096);text-transform:uppercase;
+  letter-spacing:0.05em;margin-bottom:2px;
+}
+.card-value{font-size:1.6em;font-weight:700;margin:2px 0}
+.card-desc{font-size:0.9em;color:var(--color-secondary,#4a5568)}
+
+/* ===== 折叠 ===== */
+details{margin:8px 0}
+details .critical,details .warning,details .info,details .success,details .pending{margin:8px 0}
+summary{
+  font-weight:600;cursor:pointer;padding:10px 0;
+  font-size:1.05em;user-select:none;
+}
+summary:hover{color:var(--color-accent,#3182ce)}
+
+/* ===== 标签 ===== */
+.tag{display:inline-block;padding:2px 10px;border-radius:4px;font-size:0.8em;font-weight:600;margin:2px}
+.tag-red{background:var(--bg-critical,#fed7d7);color:var(--color-critical,#c53030)}
+.tag-green{background:var(--bg-success,#c6f6d5);color:var(--color-success,#276749)}
+.tag-blue{background:var(--bg-info,#bee3f8);color:var(--color-info,#2b6cb0)}
+.tag-yellow{background:var(--bg-pending,#fefcbf);color:var(--color-pending,#975a16)}
+.tag-purple{background:#e9d8fd;color:#6b46c1}
+
+/* ===== 图表容器 ===== */
+.diagram-box{
+  background:var(--bg-card,#fff);border:1px solid var(--color-border,#e2e8f0);
+  border-radius:10px;padding:20px;margin:16px 0;text-align:center;
+}
+
+/* ===== 代码 ===== */
+code{
+  background:var(--bg-code,#edf2f7);padding:2px 6px;border-radius:4px;
+  font-family:'SF Mono','Fira Code',monospace;font-size:0.9em;
+}
+pre{
+  background:#1a202c;color:#e2e8f0;padding:16px;border-radius:8px;
+  overflow-x:auto;font-size:0.85em;line-height:1.5;
+}
+pre code{background:transparent;padding:0;color:inherit}
+
+/* ===== 表格 ===== */
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.9em}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--color-border,#e2e8f0)}
+th{background:var(--bg-secondary,#f7fafc);font-weight:600;color:var(--color-secondary,#4a5568)}
+tr:hover{background:var(--bg-secondary,#f7fafc)}
+
+/* ===== 引用 ===== */
+blockquote{
+  border-left:3px solid var(--color-info,#3182ce);margin:12px 0;padding:8px 16px;
+  background:var(--bg-info,#ebf8ff);border-radius:0 8px 8px 0;
+  font-style:italic;color:var(--color-body,#2d3748);
+}
+
+/* ===== 步骤卡片 ===== */
+.step{display:flex;gap:16px;align-items:flex-start;margin:12px 0;padding:12px 16px;background:var(--bg-card,#fff);border-radius:8px;border:1px solid var(--color-border,#e2e8f0)}
+.step-num{width:32px;height:32px;background:var(--color-accent,#3182ce);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+
+/* ===== 链接 ===== */
+a{color:var(--color-accent,#3182ce);text-decoration:none}
+a:hover{text-decoration:underline}
+img{max-width:100%;height:auto;border-radius:8px;margin:16px 0}
+
+/* ===== 列表 ===== */
+ul,ol{padding-left:1.5em;margin:8px 0}
+li{margin:4px 0}
+strong{font-weight:600}
+
+/* ===== 打印 ===== */
+@media print{body{font-size:11pt;background:#fff;color:#000}}
+@media(max-width:600px){
+  body{padding:16px}
+  .grid-4,.grid-3,.grid-2{grid-template-columns:1fr}
+  .step{flex-direction:column}
+}
+`
+
+// ===== Theme: override color variables =====
+function themeCSS(theme: string): string {
+  const colors: Record<string, string> = {
+    premium: `
+  --color-critical:#e53e3e; --bg-critical:#fff5f5;
+  --color-warning:#dd6b20; --bg-warning:#fffaf0;
+  --color-info:#3182ce;    --bg-info:#ebf8ff;
+  --color-success:#38a169; --bg-success:#f0fff4;
+  --color-pending:#d69e2e; --bg-pending:#fffff0;
+  --color-accent:#3182ce;
+  --bg-body:#f7fafc; --bg-card:#fff;
+  --color-body:#1a202c; --color-heading:#1a202c;
+  --color-secondary:#4a5568; --color-muted:#718096;
+  --color-border:#e2e8f0; --bg-secondary:#f7fafc; --bg-code:#edf2f7;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --content-width:960px;`,
+    mckinsey: `
+  --color-critical:#B85450; --bg-critical:#fdf2f2;
+  --color-warning:#B8860B; --bg-warning:#fdf8e8;
+  --color-info:#1B2A4A;    --bg-info:#e8ecf3;
+  --color-success:#2F855A; --bg-success:#e6f7ef;
+  --color-pending:#C8A961; --bg-pending:#f5f0e0;
+  --color-accent:#C8A961;
+  --bg-body:#FAFAF8; --bg-card:#FFFFFF;
+  --color-body:#2D3748; --color-heading:#1B2A4A;
+  --color-secondary:#5C5A57; --color-muted:#9C9A96;
+  --color-border:#E2E0DB; --bg-secondary:#F0EFED; --bg-code:#edf2f7;
+  --font-sans:'Helvetica Neue','Noto Sans SC','Microsoft YaHei',sans-serif;
+  --content-width:1040px;`,
+    wsj: `
+  --color-critical:#CC3333; --bg-critical:#fdf2f2;
+  --color-warning:#B8963E; --bg-warning:#fdf8e8;
+  --color-info:#006699;    --bg-info:#e0edf5;
+  --color-success:#2F855A; --bg-success:#e6f7ef;
+  --color-pending:#B8963E; --bg-pending:#f5f0e0;
+  --color-accent:#006699;
+  --bg-body:#F7F5F0; --bg-card:#FCFAF5;
+  --color-body:#111111; --color-heading:#111111;
+  --color-secondary:#333333; --color-muted:#666666;
+  --color-border:#D4D0C6; --bg-secondary:#E8E5DD; --bg-code:#edf2f7;
+  --font-sans:'Georgia','Noto Serif SC','Source Han Serif SC',serif;
+  --content-width:900px;`,
+    "blackrock": `
+  --color-critical:#C53030; --bg-critical:#fde8e8;
+  --color-warning:#B8860B; --bg-warning:#fdf6e3;
+  --color-info:#2B6CB0;    --bg-info:#e6eff9;
+  --color-success:#2F855A; --bg-success:#e6f7ef;
+  --color-pending:#D69E2E; --bg-pending:#fffff0;
+  --color-accent:#2B6CB0;
+  --bg-body:#F7F8F9; --bg-card:#FFFFFF;
+  --color-body:#1D272F; --color-heading:#1D272F;
+  --color-secondary:#4A5568; --color-muted:#8B95A5;
+  --color-border:#D1D5DB; --bg-secondary:#EDEFF2; --bg-code:#edf2f7;
+  --font-sans:'Inter','Helvetica Neue','Noto Sans SC',sans-serif;
+  --content-width:1000px;`,
+    "youtube-english": `
+  --color-critical:#E53E3E; --bg-critical:#fde8e8;
+  --color-warning:#FF8C42; --bg-warning:#fff0e8;
+  --color-info:#2563EB;    --bg-info:#dbeafe;
+  --color-success:#0D9488; --bg-success:#ccfbf1;
+  --color-pending:#FF6B35; --bg-pending:#fff0e8;
+  --color-accent:#FF6B35;
+  --bg-body:#FFFAF5; --bg-card:#FFFFFF;
+  --color-body:#1F2937; --color-heading:#1F2937;
+  --color-secondary:#4B5563; --color-muted:#9CA3AF;
+  --color-border:#E5E7EB; --bg-secondary:#F3F4F6; --bg-code:#f3f4f6;
+  --font-sans:'Inter','Noto Sans SC','PingFang SC',sans-serif;
+  --content-width:960px;`,
+    "enterprise-cn": `
+  --color-critical:#C41E24; --bg-critical:#fde8e8;
+  --color-warning:#B8860B; --bg-warning:#fdf6e3;
+  --color-info:#1B2A4A;    --bg-info:#e8ecf3;
+  --color-success:#2F855A; --bg-success:#e6f7ef;
+  --color-pending:#B8860B; --bg-pending:#faecc8;
+  --color-accent:#C41E24;
+  --bg-body:#FEFCF8; --bg-card:#FFFFFF;
+  --color-body:#222222; --color-heading:#1B2A4A;
+  --color-secondary:#555555; --color-muted:#888888;
+  --color-border:#E0DDD6; --bg-secondary:#F5F3F0; --bg-code:#f3f3f0;
+  --font-sans:'Noto Sans SC','PingFang SC','Microsoft YaHei UI',sans-serif;
+  --content-width:1020px;`,
   }
-  // 否则取最后 4 个字
-  return core.length > 6 ? core.slice(-6) : core
+  return `:root{${colors[theme] || colors.premium}}`
 }
 
-/** 提炼 B 层完整标题（保留完整标题，去掉核心词重复） */
-function extractFullTitle(title: string, coreWord: string): string {
-  return title.replace(coreWord, "").replace(/^[：:\s]+/, "").replace(/[：:\s]+$/, "").trim() || title
-}
-
-/** 根据标题内容自动选择视觉隐喻类型 */
-type MetaphorType =
-  | "funnel" | "path" | "staircase" | "matrix"
-  | "coordinate" | "flywheel" | "node-network"
-  | "data-flow" | "gateway" | "window"
-  | "defense-line" | "fault-line" | "container"
-  | "compass" | "architecture"
-
-function detectMetaphor(title: string, summary: string): MetaphorType {
-  const text = (title + " " + summary).toLowerCase()
-  if (/增长|扩张|上升|飞轮|复利|grow|scale|flywheel|loop/i.test(text)) return "flywheel"
-  if (/转化|筛选|收敛|路径|funnel|convert|filter/i.test(text)) return "funnel"
-  if (/战略|路径|方向|路线|strategy|roadmap|path/i.test(text)) return "path"
-  if (/升级|进阶|阶梯|层级|ladder|level|stage|staircase/i.test(text)) return "staircase"
-  if (/定位|比较|矩阵|matrix|grid|position/i.test(text)) return "matrix"
-  if (/市场|坐标|区间|market|map|coordinate|opportunity/i.test(text)) return "coordinate"
-  if (/系统|网络|节点|连接|network|node|system/i.test(text)) return "node-network"
-  if (/价值|承载|容器|value|container|pool/i.test(text)) return "container"
-  if (/风险|防线|安全|阈值|risk|defense|safety/i.test(text)) return "defense-line"
-  if (/结构|架构|框架|底座|architecture|framework|foundation/i.test(text)) return "architecture"
-  if (/窗口|机会|突破|入口|window|gateway|entry/i.test(text)) return "gateway"
-  if (/效率|流动|自动化|data|flow|efficiency|automation/i.test(text)) return "data-flow"
-  if (/方向|指南|导航|罗盘|compass|direction|guide/i.test(text)) return "compass"
-  // 默认：技术类内容用 architecture，教程类用 staircase
-  if (/技术|构建|build|code|engineer/i.test(text)) return "architecture"
-  return "staircase"
-}
-
-/** 生成隐喻 SVG（基于类型） */
-function renderMetaphorSVG(metaphor: MetaphorType, accentColor: string): string {
-  const c = accentColor
-  switch (metaphor) {
-    case "staircase":
-      return `<svg viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="70" width="100" height="30" rx="2" fill="${c}" opacity="0.15"/>
-        <rect x="30" y="50" width="100" height="30" rx="2" fill="${c}" opacity="0.3"/>
-        <rect x="60" y="30" width="100" height="30" rx="2" fill="${c}" opacity="0.5"/>
-        <rect x="90" y="10" width="100" height="30" rx="2" fill="${c}" opacity="0.8"/>
-        <rect x="120" y="0" width="100" height="25" rx="2" fill="${c}"/>
-        <text x="170" y="18" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">↑</text>
-      </svg>`
-    case "flywheel":
-      return `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="60" r="45" fill="none" stroke="${c}" stroke-width="2" opacity="0.3"/>
-        <circle cx="100" cy="60" r="30" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.5"/>
-        <circle cx="100" cy="60" r="15" fill="${c}" opacity="0.8"/>
-        <path d="M100 15 A45 45 0 0 1 145 60" fill="none" stroke="${c}" stroke-width="3" marker-end="url(#fly-arrow)"/>
-        <defs><marker id="fly-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="${c}"/></marker></defs>
-        <text x="100" y="65" text-anchor="middle" fill="#fff" font-size="8" font-weight="700">↻</text>
-      </svg>`
-    case "funnel":
-      return `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="100,5 195,135 5,135" fill="${c}" opacity="0.08" stroke="${c}" stroke-width="1.5"/>
-        <line x1="100" y1="5" x2="100" y2="135" stroke="${c}" stroke-width="1" opacity="0.4"/>
-        <rect x="55" y="30" width="90" height="4" rx="2" fill="${c}" opacity="0.3"/>
-        <rect x="40" y="55" width="120" height="4" rx="2" fill="${c}" opacity="0.5"/>
-        <rect x="25" y="80" width="150" height="4" rx="2" fill="${c}" opacity="0.7"/>
-        <rect x="10" y="105" width="180" height="4" rx="2" fill="${c}"/>
-      </svg>`
-    case "path":
-      return `<svg viewBox="0 0 400 60" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="20" cy="30" r="6" fill="${c}"/>
-        <circle cx="100" cy="20" r="4" fill="${c}" opacity="0.6"/>
-        <circle cx="180" cy="35" r="4" fill="${c}" opacity="0.6"/>
-        <circle cx="260" cy="15" r="4" fill="${c}" opacity="0.6"/>
-        <circle cx="340" cy="30" r="4" fill="${c}" opacity="0.6"/>
-        <path d="M26 30 Q60 5 100 20 Q140 40 180 35 Q220 0 260 15 Q300 40 340 30" fill="none" stroke="${c}" stroke-width="2" opacity="0.5"/>
-        <line x1="380" y1="30" x2="395" y2="30" stroke="${c}" stroke-width="2" marker-end="url(#path-arrow)"/>
-        <defs><marker id="path-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="${c}"/></marker></defs>
-      </svg>`
-    case "architecture":
-      return `<svg viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
-        <rect x="10" y="80" width="380" height="30" rx="2" fill="${c}" opacity="0.1" stroke="${c}" stroke-width="1"/>
-        <rect x="10" y="40" width="380" height="30" rx="2" fill="${c}" opacity="0.2" stroke="${c}" stroke-width="1"/>
-        <rect x="10" y="0" width="380" height="30" rx="2" fill="${c}" opacity="0.4" stroke="${c}" stroke-width="1"/>
-        <rect x="160" y="10" width="80" height="10" rx="2" fill="#fff" opacity="0.6"/>
-        <rect x="160" y="50" width="80" height="10" rx="2" fill="#fff" opacity="0.6"/>
-        <rect x="160" y="90" width="80" height="10" rx="2" fill="#fff" opacity="0.6"/>
-      </svg>`
-    default:
-      return `<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="0" width="200" height="80" rx="4" fill="none" stroke="${c}" stroke-width="1" opacity="0.3"/>
-        <text x="100" y="45" text-anchor="middle" fill="${c}" font-size="24" font-weight="700" opacity="0.5">◆</text>
-      </svg>`
-  }
-}
-
-/** 生成 McKinsey 风格的 cover 栏（标题重构 + 视觉隐喻 + 核心词放大） */
-function renderMckinseyHeader(title: string, summary: string, theme: PremiumThemeName): string {
-  const tokens = THEMES[theme]?.designTokens ?? {}
-  const t = theme === "mckinsey" ? "mckinsey" : theme
-  const accent = t === "mckinsey" ? "#C8A961" : tokens["accent"] || tokens["blue"] || "#0F4C81"
-  const navy = t === "mckinsey" ? "#1B2A4A" : tokens["navy"] || tokens["ink"] || "#1D272F"
-
-  const coreWord = extractCoreWord(title)
-  const fullTitle = extractFullTitle(title, coreWord)
-  const metaphor = detectMetaphor(title, summary)
-  const metaphorSVG = renderMetaphorSVG(metaphor, accent)
-
-  return `
-  <div class="mck-header" style="background:${navy};color:#fff;margin:-32px -24px 40px;padding:32px 32px 36px;position:relative;overflow:hidden;">
-    <div style="position:absolute;right:32px;bottom:0;opacity:0.15;width:200px;height:100px;">
-      ${metaphorSVG}
-    </div>
-    <div class="meta" style="margin-bottom:16px;">
-      <span class="tag tag-${t === "mckinsey" ? "gold" : "light"}" style="border-color:${accent};color:${accent};">${metaphor.toUpperCase()}</span>
-      <span class="tag tag-light">REPORT</span>
-      <span class="tag tag-light">2026</span>
-    </div>
-    <div class="core-word" style="font-size:clamp(36px,6vw,56px);font-weight:700;line-height:1.1;letter-spacing:-0.02em;margin-bottom:8px;font-family:var(--font-serif,Georgia,serif);">
-      ${coreWord}
-    </div>
-    ${fullTitle ? `<div style="font-size:15px;opacity:0.7;margin-bottom:6px;font-weight:400;">${fullTitle}</div>` : ""}
-    ${summary ? `<div style="font-size:13px;opacity:0.5;max-width:70%;line-height:1.5;">${escHtml(summary)}</div>` : ""}
-  </div>`
-}
-
-// ================================================================
-// YouTube 英语教学主题专用 header
-// ================================================================
-function renderYouTubeHeader(title: string, author: string): string {
-  return `
-  <div style="background:linear-gradient(135deg,#FF6B35 0%,#FF8C42 100%);color:#fff;margin:-32px -24px 0;padding:40px 32px 32px;border-radius:0 0 24px 24px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-      <div style="width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;">▶</div>
-      <div>
-        <div style="font-size:12px;opacity:0.7;text-transform:uppercase;letter-spacing:0.1em;">ENGLISH · TUTORIAL</div>
-        <div style="font-size:14px;font-weight:600;">${author || "English Mastery"}</div>
-      </div>
-    </div>
-    <div style="font-size:clamp(24px,4vw,36px);font-weight:700;line-height:1.3;margin-bottom:8px;">${escHtml(title)}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
-      <span style="background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:20px;font-size:12px;">📺 视频课程</span>
-      <span style="background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:20px;font-size:12px;">🎯 实景教学</span>
-      <span style="background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:20px;font-size:12px;">📝 练习材料</span>
-    </div>
-  </div>`
-}
-
-// ================================================================
-// 中国企业 LLM 布道主题专用 header
-// ================================================================
-function renderEnterpriseHeader(title: string, summary: string): string {
-  return `
-  <div style="background:linear-gradient(135deg,#8B1A1A 0%,#C41E24 50%,#8B1A1A 100%);color:#fff;margin:-32px -24px 0;padding:40px 32px 32px;position:relative;overflow:hidden;">
-    <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;border:2px solid rgba(255,255,255,0.08);border-radius:50%;"></div>
-    <div style="position:absolute;bottom:-40px;left:-40px;width:200px;height:200px;border:1px solid rgba(255,255,255,0.05);border-radius:50%;"></div>
-    <div style="font-size:12px;opacity:0.6;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:12px;">企业数字化转型 · 大模型本地部署 · 战略报告</div>
-    <div style="font-size:clamp(22px,3.5vw,32px);font-weight:800;line-height:1.25;margin-bottom:8px;">${escHtml(title)}</div>
-    ${summary ? `<div style="font-size:14px;opacity:0.65;max-width:80%;line-height:1.6;">${escHtml(summary)}</div>` : ""}
-    <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
-      <span style="background:rgba(255,255,255,0.15);padding:4px 14px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:0.05em;">🏭 制造业</span>
-      <span style="background:rgba(255,255,255,0.15);padding:4px 14px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:0.05em;">🔒 数据安全</span>
-      <span style="background:rgba(255,255,255,0.15);padding:4px 14px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:0.05em;">📈 ROI 分析</span>
-      <span style="background:rgba(255,255,255,0.15);padding:4px 14px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:0.05em;">⚙️ 落地路径</span>
-    </div>
-  </div>`
-}
-
-// ================================================================
-// 主渲染函数
-// ================================================================
-
+// ===== 生成完整 HTML =====
 export function renderPremiumPage(
   bodyHtml: string,
   opts: RenderOptions,
 ): string {
-  const themeDef = THEMES[opts.theme]
-  const css = themeDef.css
-  const fontLink = themeDef.fonts
-
-  const headerHtml = opts.theme === "mckinsey"
-    ? renderMckinseyHeader(opts.title, opts.summary, opts.theme)
-    : opts.theme === "youtube-english"
-    ? renderYouTubeHeader(opts.title, opts.author)
-    : opts.theme === "enterprise-cn"
-    ? renderEnterpriseHeader(opts.title, opts.summary)
-    : defaultHeader(opts.title, opts.summary, opts.theme)
-
-  const sectionLabel = opts.theme === "youtube-english" ? "📚 课程目录" :
-    opts.theme === "enterprise-cn" ? "📊 核心指标" : "📖 详细分析"
+  const theme = opts.theme
+  const pageTitle = opts.title
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escHtml(opts.title)}</title>
-${fontLink ? `<link href="${fontLink}" rel="stylesheet">` : ""}
+<title>${escHtml(pageTitle)}</title>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:var(--font-sans);background:var(--paper,var(--gray-50));color:var(--ink,var(--gray-800));-webkit-font-smoothing:antialiased}
-.container{max-width:var(--max-w);margin:0 auto;padding:32px 24px 64px}
-${opts.theme === "youtube-english" ? ".container{padding-top:0}" : ""}
-${opts.theme === "enterprise-cn" ? ".container{padding-top:0}" : ""}
-${css}
-h2,h3,h4{font-weight:700}
-.body ul,.body ol{padding-left:20px;margin:8px 0}
-.body li{margin:4px 0}
-.body strong{font-weight:600}
-.body code,.concept-card code{font-family:var(--font-mono);font-size:0.92em}
-a{color:var(--accent,var(--blue));text-decoration:none}
-a:hover{text-decoration:underline}
-img{max-width:100%;height:auto;border-radius:var(--radius-sm,4px);margin:16px 0}
-.mck-header .tag-light{border-color:rgba(255,255,255,0.3);color:rgba(255,255,255,0.7)}
-.mck-header .tag-gold{border-color:#C8A961;color:#C8A961}
-@media print{.toc-sidebar,.sidebar-toggle,.theme-switcher{display:none!important}body{font-size:11pt;background:#fff;color:#000}}
+${themeCSS(theme)}
+${BASE_CSS}
 </style>
 </head>
 <body>
-<div class="container">
-${headerHtml}
-<section class="section" style="${opts.theme === "youtube-english" ? "margin-top:24px" : ""}">
-  <h2 class="section-title">${sectionLabel}</h2>
-  <div class="body">
-    ${bodyHtml || renderDefaultBody(opts)}
+
+<h1>${escHtml(pageTitle)}</h1>
+<div class="subtitle">
+  ${opts.author ? `${escHtml(opts.author)} · ` : ""}
+  ${opts.summary ? escHtml(opts.summary) : ""}
+  <br>
+  <span class="tag tag-blue">${theme.toUpperCase()}</span>
+  <span class="tag tag-purple">REPORT</span>
+  <span class="tag tag-green">2026</span>
+</div>
+
+<!-- ===== 核心指标 ===== -->
+<h2>📊 核心指标速览</h2>
+<div class="grid-4">
+  <div class="card">
+    <div class="card-label">核心循环</div>
+    <div class="card-value" style="color:var(--color-info)">6 步</div>
+    <div class="card-desc">Token → Transformer → Attention → KV Cache → Decode → Repeat</div>
   </div>
-</section>
-<div class="final-quote">
-  <p>${opts.theme === "youtube-english" ? "Keep learning, keep growing. 🌟" :
-      opts.theme === "enterprise-cn" ? "AI 不是未来，是现在。本地部署，自主可控。" :
-      "本地 LLM 主要是内存数学 + 格式化 + 评估"}</p>
-  <div style="font-size:14px;opacity:0.6;margin-top:8px;">${escHtml(opts.title)} · ${opts.theme.toUpperCase()} · Generated by markdown-to-html</div>
+  <div class="card">
+    <div class="card-label">推荐 VRAM</div>
+    <div class="card-value" style="color:var(--color-success)">16-24 GB</div>
+    <div class="card-desc">2026 年本地用户最低舒适层</div>
+  </div>
+  <div class="card">
+    <div class="card-label">量化甜区</div>
+    <div class="card-value" style="color:var(--color-warning)">Q4-Q5</div>
+    <div class="card-desc">消费级本地部署的最佳权衡</div>
+  </div>
+  <div class="card">
+    <div class="card-label">关键家族</div>
+    <div class="card-value" style="color:var(--color-pending)">6+</div>
+    <div class="card-desc">Qwen / Gemma / DeepSeek / Mistral / Kimi / Nemotron</div>
+  </div>
 </div>
+
+<!-- ===== 推理核心循环 SVG ===== -->
+<h2>🔄 推理核心循环</h2>
+<div class="diagram-box">
+  ${renderFlowSVG()}
 </div>
+
+<!-- ===== 详细分析 ===== -->
+<h2>📖 详细分析</h2>
+
+${bodyHtml || renderDefaultBody(opts.toc)}
+
+<!-- ===== 结语 ===== -->
+<div class="success" style="text-align:center;margin-top:32px;padding:24px;">
+  <strong>本地 LLM 主要是内存数学 + 格式化 + 评估</strong><br>
+  <span style="font-size:0.9em;color:var(--color-muted);">${escHtml(pageTitle)} · ${theme.toUpperCase()} · Generated by markdown-to-html</span>
+</div>
+
 </body>
 </html>`
 }
 
-function defaultHeader(title: string, summary: string, theme: string): string {
-  return `
-  <header class="header">
-    <div class="meta">
-      <span class="tag tag-${theme === "premium" ? "blue" : "gray"}">${theme.toUpperCase()}</span>
-      <span class="tag tag-gray">REPORT</span>
-    </div>
-    <h1>${escHtml(title)}</h1>
-    ${summary ? `<div class="subtitle">${escHtml(summary)}</div>` : ""}
-  </header>`
+// ===== SVG 流程图 =====
+function renderFlowSVG(): string {
+  return `<svg viewBox="0 0 800 160" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#4a5568"/>
+      </marker>
+    </defs>
+    <rect x="0" y="0" width="800" height="160" rx="12" fill="#f7fafc"/>
+    <rect x="20" y="30" width="110" height="60" rx="8" fill="#3182ce" opacity="0.9"/>
+    <text x="75" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">📝 文本 → Token</text>
+    <text x="75" y="72" text-anchor="middle" fill="#bee3f8" font-size="11">分词器编码</text>
+    <line x1="130" y1="60" x2="170" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="175" y="30" width="110" height="60" rx="8" fill="#6b46c1" opacity="0.9"/>
+    <text x="230" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">🏗️ Transformer</text>
+    <text x="230" y="72" text-anchor="middle" fill="#e9d8fd" font-size="11">嵌入 + 位置编码</text>
+    <line x1="285" y1="60" x2="325" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="330" y="30" width="110" height="60" rx="8" fill="#38a169" opacity="0.9"/>
+    <text x="385" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">👁️ Attention</text>
+    <text x="385" y="72" text-anchor="middle" fill="#c6f6d5" font-size="11">决定哪些 token 重要</text>
+    <line x1="440" y1="60" x2="480" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="485" y="30" width="110" height="60" rx="8" fill="#dd6b20" opacity="0.9"/>
+    <text x="540" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">💾 KV Cache</text>
+    <text x="540" y="72" text-anchor="middle" fill="#fffaf0" font-size="11">工作内存复用</text>
+    <line x1="595" y1="60" x2="635" y2="60" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="640" y="30" width="140" height="60" rx="8" fill="#e53e3e" opacity="0.9"/>
+    <text x="710" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">🎯 Decode</text>
+    <text x="710" y="72" text-anchor="middle" fill="#fff5f5" font-size="11">选择 → 采样 → 输出</text>
+    <path d="M 710 95 L 710 120 L 75 120 L 75 95" fill="none" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow)"/>
+    <text x="390" y="138" text-anchor="middle" fill="#718096" font-size="11">🔄 重复直到停止条件</text>
+    <text x="390" y="155" text-anchor="middle" fill="#a0aec0" font-size="10">f(θ, sequence) → probability distribution over next_token</text>
+  </svg>`
 }
 
-function renderDefaultBody(opts: RenderOptions): string {
-  // 当没有正文时，从 TOC 生成结构化的章节导航
-  if (!opts.toc.length) return "<p>内容加载中...</p>"
-  return opts.toc.map(t =>
-    `<details class="detail-block"><summary>${escHtml(t.text)}</summary><div class="body"><p>${escHtml(t.text)} — 详细内容待展开。</p></div></details>`
-  ).join("\n")
+function renderDefaultBody(toc: Array<{id:string;text:string;level:number}>): string {
+  if (!toc.length) return "<p>内容加载中...</p>"
+  return toc.map(t => {
+    const icon = t.level === 1 ? "📌" : t.level === 2 ? "▸" : "•"
+    return `<details>
+  <summary>${icon} ${escHtml(t.text)}</summary>
+  <div class="info">
+    <p>${escHtml(t.text)} — 详细内容待展开。</p>
+  </div>
+</details>`
+  }).join("\n")
 }
 
 function escHtml(s: string): string {
