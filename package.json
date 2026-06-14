@@ -22,6 +22,7 @@
     "build": "bun build --outdir=dist main.ts",
     "preview": "bun main.ts example.md --theme grace --color blue",
     "test": "bun test",
+    "test:watch": "bun test --watch",
     "typecheck": "bun x tsc --noEmit"
   },
   "dependencies": {
