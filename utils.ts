@@ -4,7 +4,24 @@
 import process from "node:process";
 import { ALL_THEME_NAMES, COLOR_NAMES, FONT_FAMILY_MAP, FONT_SIZE_OPTIONS, MERMAID_THEMES } from "./constants.js";
 
-/** 打印 help 信息并退出 */
+// ==================================================================
+// 结构化 Logger
+// ==================================================================
+export type LogLevel = "debug" | "info" | "warn" | "error"
+
+let currentLogLevel: LogLevel = "info"
+
+export const logger = {
+  setLevel(level: LogLevel) { currentLogLevel = level },
+  debug: (...args: any[]) => { if (currentLogLevel === "debug") console.error("[debug]", ...args) },
+  info:  (...args: any[]) => { if (currentLogLevel !== "error") console.error("[info]", ...args) },
+  warn:  (...args: any[]) => { console.error("[warn]", ...args) },
+  error: (...args: any[]) => { console.error("[error]", ...args) },
+}
+
+// ==================================================================
+// Help
+// ==================================================================
 export function printUsage(exitCode = 0) {
   console.log(`
 markdown-to-html — Convert Markdown to styled HTML
@@ -24,15 +41,11 @@ Options:
   --cite                 Convert external links to bottom citations
   --count                Add word count to output
   --code-theme <name>    Code highlight theme: github, monokai, dracula (default: github)
-  --mac-code-block       Render code blocks in macOS style
-  --show-line-number     Show line numbers in code blocks
-  --legend <text>        Custom legend text
-  --mermaid-theme <name> Mermaid theme: ${MERMAID_THEMES.join(", ")} (default: default)
-  --mermaid-scale <N>    Mermaid render scale (1-4, default: 2)
-  --mermaid-width <N>    Mermaid target display width (default: 860)
-  --mermaid-bg <value>   Mermaid background: white, transparent, #hex (default: white)
   --no-mermaid           Skip Mermaid rendering; emit <pre class="mermaid">
-  --watch                Watch file for changes and auto-reconvert
+  --mermaid-theme <name> Mermaid theme: ${MERMAID_THEMES.join(", ")} (default: default)
+  --watch, -w            Watch file for changes and auto-reconvert
+  --quiet                Only show errors
+  --verbose              Show debug info
   --help, -h             Show this help
 
 Examples:

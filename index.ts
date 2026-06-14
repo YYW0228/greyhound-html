@@ -2,7 +2,7 @@
 // Skill: markdown-to-html
 
 // 核心转换
-export { convertMarkdown } from "./core.js";
+export { convertMarkdown, restoreBackup } from "./core.js";
 
 // 类型
 export type {
@@ -27,23 +27,26 @@ export {
 } from "./constants.js";
 export type { ThemeName, PremiumThemeName } from "./constants.js";
 
-// 主题
+// 主题系统
 export { THEMES, PREMIUM_THEME_NAMES as PREMIUM_THEME_LIST } from "./themes.js";
 export type { ThemeDefinition } from "./themes.js";
 export { renderPremiumPage } from "./renderer-premium.js";
 
 // 工具
 export {
+  logger,
   formatTimestamp,
   escapeHtml,
   wordCount,
   basenameNoExt,
   debounce,
+  printUsage,
 } from "./utils.js";
+export type { LogLevel } from "./utils.js";
 
 // 元数据
-export { extractMetadata, serializeFrontmatter } from "./metadata.js";
+export { extractMetadata } from "./metadata.js";
 
-// CLI (库使用者可能也需要)
+// CLI
 export { parseCliArgs } from "./cli.js";
 export type { CliResult } from "./cli.js";

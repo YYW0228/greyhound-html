@@ -28,6 +28,8 @@ export function parseCliArgs(argv: string[]): CliResult {
   let title: string | undefined;
   let keepTitle = false;
   let citeStatus = false;
+  let quiet = false;
+  let verbose = false;
   let markdownPath = "";
 
   // 先过一遍参数，提取我们关心的关键项
@@ -35,6 +37,10 @@ export function parseCliArgs(argv: string[]): CliResult {
     const arg = argv[i];
     if (arg === "--watch" || arg === "-w") {
       watch = true;
+    } else if (arg === "--quiet") {
+      quiet = true;
+    } else if (arg === "--verbose") {
+      verbose = true;
     } else if (arg === "--theme" && i + 1 < argv.length) {
       theme = argv[++i];
     } else if (arg === "--color" && i + 1 < argv.length) {
@@ -56,12 +62,14 @@ export function parseCliArgs(argv: string[]): CliResult {
   }
 
   const isPremium = (PREMIUM_THEME_NAMES as readonly string[]).includes(theme);
-  const options: ConvertMarkdownOptions = {
+  const options: ConvertMarkdownOptions & { quiet?: boolean; verbose?: boolean } = {
     title,
     theme,
     primaryColor: color,
     keepTitle,
     citeStatus,
+    quiet,
+    verbose,
   };
 
   // 高级主题：跳过 baoyu-md 的 parseArgs，它不认可这些主题名
