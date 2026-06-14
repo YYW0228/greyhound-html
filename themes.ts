@@ -248,6 +248,85 @@ th { font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(
 `
 
 // ================================================================
+// THEME: youtube-english — YouTube 英语教学风格
+// ================================================================
+const youtubeTokens: Record<string, string> = {
+  "orange": "#FF6B35", "orange-light": "#fff0e8", "orange-bg": "#ffe0cc",
+  "blue": "#2563EB", "blue-light": "#dbeafe", "blue-bg": "#bfdbfe",
+  "ink": "#1F2937", "ink-light": "#4B5563", "ink-muted": "#9CA3AF",
+  "paper": "#FFFAF5", "paper-card": "#FFFFFF",
+  "gray-100": "#F3F4F6", "gray-200": "#E5E7EB",
+  "font-sans": "'Inter','Noto Sans SC','PingFang SC',sans-serif",
+  "font-mono": "'JetBrains Mono','SF Mono',monospace",
+  "shadow-sm": "0 2px 8px rgba(0,0,0,0.06)", "shadow-md": "0 4px 16px rgba(0,0,0,0.08)",
+  "radius-sm": "8px", "radius-md": "16px", "radius-lg": "24px", "max-w": "960px",
+}
+const youtubeCSS = `body{background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.8}
+.container{max-width:var(--max-w);margin:0 auto;padding:0 24px 64px}
+.section-title{font-size:20px;font-weight:700;color:var(--ink);margin-bottom:24px;border-bottom:3px solid var(--orange);padding-bottom:12px}
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.metric-card{background:var(--paper-card);border-radius:var(--radius-md);padding:20px;box-shadow:var(--shadow-sm);border:1px solid var(--gray-100)}
+.metric-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.metric-label{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--ink-muted)}
+.metric-value{font-size:26px;font-weight:800}
+.metric-desc{font-size:13px;color:var(--ink-light)}
+.concept-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.concept-card{background:var(--paper-card);border-radius:var(--radius-md);padding:20px;box-shadow:var(--shadow-sm);border:1px solid var(--gray-100)}
+.concept-card .icon{font-size:28px;margin-bottom:10px}
+.concept-card h3{font-size:17px;font-weight:700;color:var(--ink)}
+.concept-card p{font-size:14px;color:var(--ink-light)}
+details.detail-block{margin:12px 0;background:var(--paper-card);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);border:1px solid var(--gray-100)}
+details.detail-block summary{padding:16px 20px;cursor:pointer;font-size:16px;font-weight:600;color:var(--ink)}
+details.detail-block summary::before{content:"▶";font-size:10px;color:var(--orange);margin-right:8px}
+details.detail-block .body{padding:0 20px 16px;font-size:15px;color:var(--ink-light)}
+blockquote{margin:16px 0;padding:14px 20px;border-left:4px solid var(--orange);background:var(--orange-light);font-style:italic}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--gray-200)}
+th{background:var(--gray-100);font-weight:600;color:var(--ink)}
+.final-quote{margin-top:48px;padding:32px;background:linear-gradient(135deg,var(--orange) 0%,var(--blue) 100%);border-radius:var(--radius-lg);color:#fff;text-align:center}
+.final-quote p{font-size:20px;font-weight:700}
+@media(max-width:768px){.metric-grid{grid-template-columns:repeat(2,1fr)}.concept-grid{grid-template-columns:1fr}}`
+
+// ================================================================
+// THEME: enterprise-cn — 中国企业 LLM 布道风格
+// ================================================================
+const enterpriseTokens: Record<string, string> = {
+  "red": "#C41E24", "red-light": "#fde8e8", "red-bg": "#f8d0d0",
+  "gold": "#B8860B", "gold-light": "#fdf6e3", "gold-bg": "#faecc8",
+  "navy": "#1B2A4A", "navy-light": "#e8ecf3",
+  "ink": "#222222", "ink-light": "#555555",
+  "paper": "#FEFCF8", "paper-card": "#FFFFFF",
+  "gray-100": "#F5F3F0", "gray-200": "#E0DDD6",
+  "font-sans": "'Noto Sans SC','PingFang SC','Microsoft YaHei UI',sans-serif",
+  "font-mono": "'JetBrains Mono','SF Mono',monospace",
+  "shadow-sm": "0 1px 3px rgba(0,0,0,0.06)", "shadow-md": "0 6px 20px rgba(0,0,0,0.08)",
+  "radius-sm": "4px", "radius-md": "8px", "radius-lg": "12px", "max-w": "1020px",
+}
+const enterpriseCSS = `body{background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.8}
+.container{max-width:var(--max-w);margin:0 auto;padding:0 24px 64px}
+.section-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid var(--red)}
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.metric-card{background:var(--paper-card);border:1px solid var(--gray-200);padding:18px 20px;box-shadow:var(--shadow-sm);border-top:3px solid var(--red)}
+.metric-label{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--ink-muted)}
+.metric-value{font-size:24px;font-weight:800;color:var(--navy)}
+.metric-desc{font-size:13px;color:var(--ink-light)}
+.concept-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.concept-card{background:var(--paper-card);border:1px solid var(--gray-200);padding:18px 20px;border-left:3px solid var(--red)}
+.concept-card .icon{font-size:24px;margin-bottom:8px}
+.concept-card h3{font-size:15px;font-weight:700;color:var(--navy)}
+.concept-card p{font-size:14px;color:var(--ink-light)}
+details.detail-block{margin:10px 0;border:1px solid var(--gray-200);background:var(--paper-card)}
+details.detail-block summary{padding:14px 18px;cursor:pointer;font-size:15px;font-weight:600;color:var(--navy)}
+details.detail-block .body{padding:0 18px 14px;font-size:14px;color:var(--ink-light)}
+blockquote{margin:14px 0;padding:12px 18px;border-left:3px solid var(--red);background:var(--red-light)}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--gray-200)}
+th{background:var(--gray-100);font-weight:600;color:var(--navy)}
+.final-quote{margin-top:48px;padding:28px 32px;background:linear-gradient(135deg,var(--navy) 0%,#2a1a1a 100%);color:#fff;text-align:center;border-top:4px solid var(--gold)}
+.final-quote p{font-size:18px;font-weight:700}
+@media(max-width:768px){.metric-grid{grid-template-columns:repeat(2,1fr)}.concept-grid{grid-template-columns:1fr}}`
+
+// ================================================================
 // 主题注册表
 // ================================================================
 
@@ -278,6 +357,22 @@ export const THEMES: Record<string, ThemeDefinition> = {
     description: "贝莱德财报风格 — 深色顶栏+数据驱动+碳灰配色",
     designTokens: blackrockTokens,
     css: compileCSS(blackrockTokens, blackrockCSS),
+    fonts: "",
+  },
+  // ===== YouTube 英语教学 =====
+  "youtube-english": {
+    name: "youtube-english",
+    description: "YouTube 英语教学风格 — 明亮橘色+圆角卡片+高可读性排版",
+    designTokens: youtubeTokens,
+    css: compileCSS(youtubeTokens, youtubeCSS),
+    fonts: "",
+  },
+  // ===== 中国企业 LLM 布道 =====
+  "enterprise-cn": {
+    name: "enterprise-cn",
+    description: "中国企业 LLM 布道风格 — 中国红+金色+权威感+落地路径",
+    designTokens: enterpriseTokens,
+    css: compileCSS(enterpriseTokens, enterpriseCSS),
     fonts: "",
   },
 }

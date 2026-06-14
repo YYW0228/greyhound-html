@@ -6,7 +6,7 @@ export const THEME_NAMES = ["default", "grace", "simple", "modern"] as const;
 export type ThemeName = (typeof THEME_NAMES)[number];
 
 /** 高级主题名称列表（自定义 premium 主题） */
-export const PREMIUM_THEME_NAMES = ["premium", "mckinsey", "wsj", "blackrock"] as const;
+export const PREMIUM_THEME_NAMES = ["premium", "mckinsey", "wsj", "blackrock", "youtube-english", "enterprise-cn"] as const;
 export type PremiumThemeName = (typeof PREMIUM_THEME_NAMES)[number];
 
 /** 全部主题名称联合 */

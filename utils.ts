@@ -14,6 +14,8 @@ Usage:
 
 Options:
   --theme <name>         Theme: ${ALL_THEME_NAMES.join(", ")} (default: default)
+                         Premium: premium (v2报告), mckinsey (麦肯锡), wsj (华尔街),
+                         blackrock (贝莱德), youtube-english (英语教学), enterprise-cn (企业布道)
   --color <name|hex>     Primary color: ${COLOR_NAMES.join(", ")} or hex (default: blue)
   --font-family <name>   Font: ${Object.keys(FONT_FAMILY_MAP).join(", ")} or CSS value
   --font-size <N>        Font size: ${FONT_SIZE_OPTIONS.join(", ")} (default: 16)
