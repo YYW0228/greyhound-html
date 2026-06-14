@@ -39,7 +39,7 @@ export interface GreyhoundPlugin {
 // ===== 插件管理器 =====
 export class PluginManager {
   private plugins: GreyhoundPlugin[] = []
-  private sorted = false
+  private sortDirty = false
 
   /** 注册插件 */
   use(plugin: GreyhoundPlugin): void {
@@ -48,14 +48,14 @@ export class PluginManager {
       return
     }
     this.plugins.push(plugin)
-    this.sorted = false
+    this.sortDirty = true  // 自动标记需重排序
     logger.info(`[plugin] Registered: ${plugin.name}@${plugin.version}`)
   }
 
   /** 移除插件 */
   remove(name: string): void {
     this.plugins = this.plugins.filter(p => p.name !== name)
-    this.sorted = false
+    this.sortDirty = true
   }
 
   /** 启用/禁用插件 */
@@ -88,12 +88,12 @@ export class PluginManager {
 
   /** 按优先级排序 */
   private ensureSorted(): void {
-    if (this.sorted) return
+    if (!this.sortDirty) return
     this.plugins.sort(
       (a, b) => (a.metadata?.priority ?? PluginPriority.NORMAL) -
                  (b.metadata?.priority ?? PluginPriority.NORMAL),
     )
-    this.sorted = true
+    this.sortDirty = false
   }
 
   /** 获取启用的插件 */
