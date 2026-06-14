@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本地 LLM 完全指南</title>
+<style>
+/* ===== Design System ===== */
+:root {
+  --blue: #0F4C81;    --blue-light: #e8f0fe;  --blue-bg: #d0e1fd;
+  --green: #009874;   --green-light: #e6f7f0; --green-bg: #b8e6d0;
+  --orange: #D97757;  --orange-light: #fef3e9;--orange-bg: #fde2c4;
+  --purple: #6b46c1;  --purple-light: #f0ecfc;--purple-bg: #d9cef7;
+  --red: #A93226;     --red-light: #fde8e8;   --red-bg: #f8c8c8;
+  --gray-50: #f8f9fa; --gray-100: #f1f3f5;    --gray-200: #e9ecef;
+  --gray-300: #dee2e6;--gray-400: #ced4da;    --gray-500: #adb5bd;
+  --gray-600: #6c757d;--gray-700: #495057;    --gray-800: #343a40;
+  --gray-900: #212529;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.04);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --max-w: 960px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+/* ===== Header ===== */
+.header { margin-bottom: 40px; }
+.header h1 {
+  font-size: 32px; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--gray-900); margin-bottom: 6px;
+}
+.header .subtitle {
+  font-size: 14px; color: var(--gray-600);
+  margin-bottom: 12px; line-height: 1.5;
+}
+.header .meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--gray-500); margin-bottom: 12px;
+}
+
+/* ===== Tags ===== */
+.tag {
+  display: inline-block; padding: 3px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+}
+.tag-blue    { background: var(--blue-bg); color: var(--blue); }
+.tag-purple  { background: var(--purple-bg); color: var(--purple); }
+.tag-green   { background: var(--green-bg); color: var(--green); }
+.tag-orange  { background: var(--orange-bg); color: var(--orange); }
+.tag-red     { background: var(--red-bg); color: var(--red); }
+.tag-gray    { background: var(--gray-200); color: var(--gray-700); }
+
+/* ===== Section Header ===== */
+.section {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid var(--gray-200);
+}
+.section:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+.section-title {
+  font-size: 20px; font-weight: 700; color: var(--gray-900);
+  margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+}
+
+/* ===== Metric Cards ===== */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.metric-card {
+  background: #fff; border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md); padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.metric-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.metric-label {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 4px;
+}
+.metric-value {
+  font-size: 28px; font-weight: 800; line-height: 1.2; margin-bottom: 4px;
+}
+.metric-desc {
+  font-size: 13px; color: var(--gray-600); line-height: 1.5;
+}
+
+/* ===== SVG Flow ===== */
+.flow-container {
+  background: #fff; border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md); padding: 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 8px;
+}
+.flow-container svg { display: block; max-width: 100%; height: auto; }
+
+/* ===== Concept Grid ===== */
+.concept-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.concept-card {
+  background: #fff; border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md); padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.concept-card .icon { font-size: 24px; margin-bottom: 8px; }
+.concept-card h3 {
+  font-size: 16px; font-weight: 700; margin-bottom: 8px;
+  color: var(--gray-900);
+}
+.concept-card p {
+  font-size: 14px; color: var(--gray-600); line-height: 1.6;
+}
+.concept-card p code {
+  font-family: var(--font-mono); font-size: 13px;
+  background: var(--gray-100); padding: 1px 6px;
+  border-radius: 4px; color: var(--gray-800);
+}
+
+/* ===== Detail Section ===== */
+.detail-section { margin-top: 32px; }
+.detail-title {
+  font-size: 18px; font-weight: 700; color: var(--gray-900);
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+
+details.detail-block {
+  margin: 12px 0; border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md); overflow: hidden;
+  background: #fff; box-shadow: var(--shadow-sm);
+}
+details.detail-block[open] { box-shadow: var(--shadow-md); }
+
+details.detail-block summary {
+  padding: 14px 20px; cursor: pointer;
+  font-size: 15px; font-weight: 600; color: var(--gray-800);
+  display: flex; align-items: center; gap: 8px;
+  list-style: none;
+  user-select: none;
+}
+details.detail-block summary::-webkit-details-marker { display: none; }
+details.detail-block summary::before {
+  content: "▶"; font-size: 10px; color: var(--gray-500);
+  transition: transform 0.2s;
+}
+details.detail-block[open] summary::before { transform: rotate(90deg); }
+details.detail-block summary:hover { background: var(--gray-50); }
+
+details.detail-block .body {
+  padding: 0 20px 16px;
+  font-size: 14px; color: var(--gray-700); line-height: 1.7;
+}
+
+/* ===== Typography inside details ===== */
+.body p { margin-bottom: 10px; }
+.body p:last-child { margin-bottom: 0; }
+.body ul, .body ol { margin: 8px 0; padding-left: 20px; }
+.body li { margin: 4px 0; }
+.body strong { color: var(--gray-900); font-weight: 600; }
+.body code {
+  font-family: var(--font-mono); font-size: 13px;
+  background: var(--gray-100); padding: 2px 6px;
+  border-radius: 4px;
+}
+.body blockquote {
+  margin: 12px 0; padding: 10px 14px;
+  border-left: 3px solid var(--blue);
+  background: var(--blue-light);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--gray-700); font-style: italic;
+}
+
+/* ===== Table ===== */
+.body table {
+  width: 100%; border-collapse: collapse; margin: 12px 0;
+  font-size: 13px;
+}
+.body th, .body td {
+  padding: 10px 12px; text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+}
+.body th { background: var(--gray-50); font-weight: 600; color: var(--gray-700); }
+.body tr:hover { background: var(--gray-50); }
+
+/* ===== Mini Grid inside detail ===== */
+.mini-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+  gap: 10px; margin: 12px 0;
+}
+.mini-card {
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200); font-size: 13px;
+}
+.mini-card strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+/* ===== Step list ===== */
+.step-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 14px; margin: 8px 0;
+  background: var(--gray-50); border-radius: var(--radius-sm);
+}
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--blue); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.step-body { font-size: 14px; }
+
+/* ===== Scenario Grid ===== */
+.scenario-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px; margin: 12px 0;
+}
+.scenario-card {
+  padding: 12px; border-radius: var(--radius-sm); font-size: 13px;
+}
+.scenario-card strong { display: block; margin-bottom: 4px; font-size: 13px; }
+
+/* ===== Family Grid ===== */
+.family-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; margin: 12px 0;
+}
+.family-card {
+  padding: 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200); font-size: 13px;
+}
+.family-card strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+/* ===== Color semantics ===== */
+.border-blue   { border-left: 4px solid var(--blue)   !important; }
+.border-green  { border-left: 4px solid var(--green)  !important; }
+.border-orange { border-left: 4px solid var(--orange) !important; }
+.border-purple { border-left: 4px solid var(--purple) !important; }
+.border-red    { border-left: 4px solid var(--red)    !important; }
+
+.bg-blue   { background: var(--blue-light)   !important; }
+.bg-green  { background: var(--green-light)  !important; }
+.bg-orange { background: var(--orange-light) !important; }
+.bg-purple { background: var(--purple-light) !important; }
+.bg-red    { background: var(--red-light)    !important; }
+
+/* ===== Final Quote ===== */
+.final-quote {
+  margin-top: 40px; padding: 24px;
+  background: linear-gradient(135deg, var(--gray-900) 0%, #1a1a2e 100%);
+  border-radius: var(--radius-md); color: #fff;
+  text-align: center;
+}
+.final-quote p { font-size: 18px; font-weight: 600; line-height: 1.5; opacity: 0.95; }
+.final-quote .sub { font-size: 14px; opacity: 0.6; margin-top: 8px; }
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .container { padding: 20px 16px 40px; }
+  .header h1 { font-size: 24px; }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  .concept-grid { grid-template-columns: 1fr; }
+  .family-grid { grid-template-columns: 1fr; }
+  .metric-value { font-size: 22px; }
+}
+@media (max-width: 480px) {
+  .metric-grid { grid-template-columns: 1fr; }
+  .header h1 { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ===== HEADER ===== -->
+<header class="header">
+  <div class="meta">
+    <span>2026/6/14</span>
+    <span class="tag tag-blue">模型优先指南</span>
+    <span class="tag tag-purple">本地部署</span>
+    <span class="tag tag-green">推理</span>
+  </div>
+  <h1>🧠 本地 LLM 完全指南</h1>
+  <div class="subtitle">基于 Ahmad Osman 文章整理 · 从循环开始理解 LLM 推理全链路</div>
+</header>
+
+<!-- ===== 核心指标速览 ===== -->
+<section class="section">
+  <h2 class="section-title">📊 核心指标速览</h2>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">核心循环</div>
+      <div class="metric-value" style="color:var(--blue)">6 步</div>
+      <div class="metric-desc">Token → Transformer → Attention → KV Cache → Decode → Repeat</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">推荐 VRAM</div>
+      <div class="metric-value" style="color:var(--green)">16-24 GB</div>
+      <div class="metric-desc">2026 年本地用户最低舒适层</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">量化甜区</div>
+      <div class="metric-value" style="color:var(--orange)">Q4-Q5</div>
+      <div class="metric-desc">消费级本地部署的最佳权衡</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">关键家族</div>
+      <div class="metric-value" style="color:var(--purple)">6+</div>
+      <div class="metric-desc">Qwen / Gemma / DeepSeek / Mistral / Kimi / Nemotron</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 推理核心循环 ===== -->
+<section class="section">
+  <h2 class="section-title">🔄 推理核心循环</h2>
+  <div class="flow-container">
+    <svg viewBox="0 0 820 150" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#6c757d"/>
+        </marker>
+        <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+        </filter>
+      </defs>
+      <rect x="-10" y="-10" width="840" height="170" rx="12" fill="#f8f9fa"/>
+
+      <!-- 1: Text → Token -->
+      <rect x="20" y="30" width="120" height="64" rx="10" fill="#0F4C81" filter="url(#shadow)"/>
+      <text x="80" y="54" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">📝 文本 → Token</text>
+      <text x="80" y="72" text-anchor="middle" fill="#d0e1fd" font-size="12">分词器编码</text>
+      <line x1="140" y1="62" x2="182" y2="62" stroke="#6c757d" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- 2: Transformer -->
+      <rect x="188" y="30" width="120" height="64" rx="10" fill="#6b46c1" filter="url(#shadow)"/>
+      <text x="248" y="54" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">🏗️ Transformer</text>
+      <text x="248" y="72" text-anchor="middle" fill="#d9cef7" font-size="12">嵌入 + 位置编码</text>
+      <line x1="308" y1="62" x2="350" y2="62" stroke="#6c757d" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- 3: Attention -->
+      <rect x="356" y="30" width="120" height="64" rx="10" fill="#009874" filter="url(#shadow)"/>
+      <text x="416" y="54" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">👁️ Attention</text>
+      <text x="416" y="72" text-anchor="middle" fill="#b8e6d0" font-size="12">决定 token 重要性</text>
+      <line x1="476" y1="62" x2="518" y2="62" stroke="#6c757d" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- 4: KV Cache -->
+      <rect x="524" y="30" width="120" height="64" rx="10" fill="#D97757" filter="url(#shadow)"/>
+      <text x="584" y="54" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">💾 KV Cache</text>
+      <text x="584" y="72" text-anchor="middle" fill="#fde2c4" font-size="12">工作内存复用</text>
+      <line x1="644" y1="62" x2="680" y2="62" stroke="#6c757d" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- 5: Decode -->
+      <rect x="686" y="30" width="120" height="64" rx="10" fill="#A93226" filter="url(#shadow)"/>
+      <text x="746" y="54" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">🎯 Decode</text>
+      <text x="746" y="72" text-anchor="middle" fill="#f8c8c8" font-size="12">选择→采样→输出</text>
+
+      <!-- Loop back arrow -->
+      <path d="M 746 98 L 746 124 L 80 124 L 80 98" fill="none" stroke="#6c757d" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arr)"/>
+      <text x="413" y="142" text-anchor="middle" fill="#6c757d" font-size="12">🔄 重复直到停止条件</text>
+      <text x="413" y="157" text-anchor="middle" fill="#adb5bd" font-size="11">f(θ, sequence) → probability distribution over next_token</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ===== 核心概念 ===== -->
+<section class="section">
+  <h2 class="section-title">📌 核心概念</h2>
+  <div class="concept-grid">
+    <div class="concept-card border-blue">
+      <div class="icon">🎯</div>
+      <h3>Token</h3>
+      <p>模型的工作单位。不是单词，是小块文本（单词/片段/标点/控制符）。决定上下文窗口大小、KV 缓存大小、延迟和预填充时间。</p>
+    </div>
+    <div class="concept-card border-purple">
+      <div class="icon">🏗️</div>
+      <h3>Transformer</h3>
+      <p>骨架。Token → 向量 → Attention → MLP → 输出投影。堆叠数十层。RoPE 保持位置信息，残差连接稳定深层网络。</p>
+    </div>
+    <div class="concept-card border-green">
+      <div class="icon">⚡</div>
+      <h3>Attention</h3>
+      <p>决定哪些早期 token 重要。MHA 灵活但缓存大，GQA 是中间立场，MQA 省内存。FlashAttention 等内核可显著加速。</p>
+    </div>
+    <div class="concept-card border-orange">
+      <div class="icon">💾</div>
+      <h3>KV Cache</h3>
+      <p>隐藏的内存账单。大小 ∝ <code>token × layer × kv_heads × head_dim × precision × 2</code>。13B MHA 在 32K 时可消耗 16 GiB。</p>
+    </div>
+    <div class="concept-card border-red">
+      <div class="icon">🔄</div>
+      <h3>预填充 vs 解码</h3>
+      <p>预填充处理提示（可并行，计算受限），解码一次一 token（带宽受限）。长提示 → 慢预填充。长答案 → 慢解码。长对话 → 都慢。</p>
+    </div>
+    <div class="concept-card border-purple">
+      <div class="icon">🎛️</div>
+      <h3>量化</h3>
+      <p>降低精度以节省内存。FP16 → Q8(几乎无损) → Q6/Q5(优质) → Q4(消费级甜区) → Q2(必须)。数学/代码/工具调用最敏感。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 详细分析 ===== -->
+<section class="section">
+  <h2 class="section-title">📖 详细分析</h2>
+
+  <details class="detail-block">
+    <summary>🔤 Token — 模型的工作单位</summary>
+    <div class="body">
+      <p>LLM 不读原始文本，他们看到 <strong>token</strong>：内部表示为整数 ID 的小块文本。</p>
+      <p><strong>常见类型</strong>：完整单词、单词片段、标点、空格前缀、字节级回退、特殊控制标记。</p>
+      <p><strong>影响面</strong>：</p>
+      <ul>
+        <li>上下文窗口能装多少文本</li>
+        <li>KV 缓存变得多大</li>
+        <li>预填充时付出多少延迟</li>
+        <li>多语言/代码的压缩效率</li>
+      </ul>
+      <div class="mini-grid">
+        <div class="mini-card border-blue"><strong>词汇量</strong>大词汇量 → 更少 token → 更快</div>
+        <div class="mini-card border-green"><strong>上下文窗口</strong>2026: 8K~1M token。但支持 ≠ 同等质量</div>
+        <div class="mini-card border-orange"><strong>测试建议</strong>始终测试实际使用的上下文长度</div>
+      </div>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>🏗️ Transformer — 骨架</summary>
+    <div class="body">
+      <p>大多数现代 LLM 是基于 Transformer 的 <strong>仅解码器架构</strong>：预测下一个 token，回看所有之前的 token。</p>
+      <p><strong>简化层包含</strong>：</p>
+      <ol>
+        <li><strong>Token 嵌入</strong>：Token ID → 向量</li>
+        <li><strong>位置信息</strong>（RoPE）：通过旋转表示编码位置</li>
+        <li><strong>自注意力</strong>：每个 token 回看前置 token，决定什么重要</li>
+        <li><strong>MLP/前馈块</strong>：展开并压缩表示的密集非线性计算</li>
+        <li><strong>层归一化 + 残差连接</strong>：稳定深度网络</li>
+        <li><strong>输出投影</strong>：最终隐藏状态 → 词汇表上的 logits</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>👁️ Attention — 谁重要？</summary>
+    <div class="body">
+      <p>Attention 是 token 决定哪些早期 token 对下一个预测重要的机制。也是本地推理对内存敏感的关键原因。</p>
+      <table>
+        <tr><th>类型</th><th>说明</th><th>KV 缓存大小</th><th>表达能力</th></tr>
+        <tr><td><strong>MHA</strong></td><td>每头独立 K/V</td><td><span class="tag tag-red">最大</span></td><td>✅ 最强</td></tr>
+        <tr><td><strong>GQA</strong></td><td>查询头分组共享 K/V</td><td><span class="tag tag-orange">中等</span></td><td>✅ 好</td></tr>
+        <tr><td><strong>MQA</strong></td><td>多查询头共享一个 K/V</td><td><span class="tag tag-green">最小</span></td><td>⚠️ 可能较弱</td></tr>
+      </table>
+      <p>FlashAttention/SDPA 等内核减少注意力内存流量，使 GPU 更忙。同样模型+硬件下，好内核可以快得多。</p>
+      <blockquote>比较模型时：看注意力类型 + KV 头 + 上下文长度 + 运行时支持，而不是只看参数数量。</blockquote>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>💾 KV Cache — 隐藏的内存账单</summary>
+    <div class="body">
+      <p><strong>KV 缓存是模型生成时的工作内存</strong>。存储之前 token 的 K/V 注意力状态，避免每生成一个新 token 就重新计算整个历史。</p>
+      <p><strong>大小公式</strong>：<code>token × layer × kv_heads × head_dim × precision × 2</code></p>
+      <table>
+        <tr><th>模型</th><th>4K 上下文</th><th>32K 上下文</th><th>说明</th></tr>
+        <tr><td>7B MHA (FP16)</td><td>~2 GiB</td><td>~16 GiB</td><td>旧式设计</td></tr>
+        <tr><td>7B GQA (FP16)</td><td>~0.5 GiB</td><td>~4 GiB</td><td>现代设计</td></tr>
+        <tr><td>7B GQA (FP8)</td><td>~0.25 GiB</td><td>~2 GiB</td><td>推荐压缩层</td></tr>
+      </table>
+      <blockquote>这就是为什么模型空提示时能跑，加载长文档时崩了。权重合适，但工作内存不合适。</blockquote>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>🔀 预填充 vs 解码 — 两个性能机制</summary>
+    <div class="body">
+      <div class="mini-grid">
+        <div class="mini-card border-red">
+          <strong>预填充 (Prefill)</strong>
+          处理提示阶段。20K token 文档需先全部处理才能生成第一个 token。相对可并行化，GPU 能有效处理。
+        </div>
+        <div class="mini-card border-orange">
+          <strong>解码 (Decode)</strong>
+          一次生成一个新 token。每个 token 依赖序列，因此更连续性。通常是感觉快慢的决定性阶段。
+        </div>
+      </div>
+      <p><strong>三个惩罚规则</strong>：</p>
+      <ul>
+        <li>长提示 → 惩罚预填充</li>
+        <li>长答案 → 惩罚解码</li>
+        <li>长对话 → 两者都惩罚（KV 缓存不断增长）</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>🎯 解码 — Logit 到 Token 的最后一公里</summary>
+    <div class="body">
+      <p>模型生成 logits 后还没写任何东西。解码是「将分数 → 选中一个 token → 追加到序列 → 重复」的策略。</p>
+      <p><strong>三个控制维度</strong>：</p>
+      <ul>
+        <li><strong>随机性</strong>：允许多少变化？(temperature)</li>
+        <li><strong>尾部覆盖</strong>：采样器能深入低概率 token 多远？(top-p)</li>
+        <li><strong>边界</strong>：什么防止循环/漫无目的/失控？(repetition penalty, stop tokens)</li>
+      </ul>
+      <div class="mini-grid">
+        <div class="mini-card border-green"><strong>精确工作</strong>低温 + 短 max_tokens + 约束解码</div>
+        <div class="mini-card border-orange"><strong>创意工作</strong>高温度 + top-p + 多候选排序</div>
+        <div class="mini-card border-blue"><strong>编码工作</strong>第一遍保守，探索阶段放宽</div>
+      </div>
+      <blockquote>贪婪解码并不总更准确。它通常很脆弱，可能陷入循环或产生通用答案。</blockquote>
+    </div>
+  </details>
+</section>
+
+<!-- ===== 基础设施决策 ===== -->
+<section class="section">
+  <h2 class="section-title">🛠️ 基础设施决策</h2>
+
+  <details class="detail-block">
+    <summary>📦 模型包包含什么</summary>
+    <div class="body">
+      <p>一个可运行的本地 LLM 远不止一个大权重文件：</p>
+      <ol>
+        <li><strong>架构/配置</strong>：层数、隐藏大小、注意力类型、RoPE 设置</li>
+        <li><strong>权重</strong>：学习参数，存储为 safetensors / GGUF / GPTQ / AWQ / EXL2</li>
+        <li><strong>Tokenizer</strong>：文本 ↔ Token ID 的规则</li>
+        <li><strong>聊天模板</strong>：system/user/assistant/tool 消息的确切 token 格式</li>
+        <li><strong>生成配置</strong>：temperature, top-p, stop tokens 默认值</li>
+        <li><strong>许可证 & 模型卡</strong>：法律和操作说明</li>
+      </ol>
+      <blockquote>如果 tokenizer/聊天模板错误，同样的权重会感觉像坏了。</blockquote>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>📐 量化 — 精度的艺术</summary>
+    <div class="body">
+      <table>
+        <tr><th>层级</th><th>说明</th><th>适用场景</th></tr>
+        <tr><td><strong>FP16/BF16</strong></td><td>质量最佳基线</td><td>VRAM 充足时的评估基准</td></tr>
+        <tr><td><strong>Q8/INT8</strong></td><td>几乎无损，仍然较大</td><td>VRAM 够用，质量优先</td></tr>
+        <tr><td><strong>Q6/Q5</strong></td><td>优质，节省适中</td><td>强力的中间立场</td></tr>
+        <tr><td><strong>Q4</strong></td><td>消费级默认甜区</td><td>大多数聊天和文档工作流</td></tr>
+        <tr><td><strong>Q3/Q2</strong></td><td>仅当必须塞更大模型</td><td>数学/代码/结构化输出先下降</td></tr>
+      </table>
+      <blockquote>高精度的小模型可以击败压太死的大模型。Q6 的 7B 能在推理任务上击败 Q2 的 13B。</blockquote>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>💻 VRAM 数学 — 三巨头</summary>
+    <div class="body">
+      <p><strong>三个主要消费者</strong>：</p>
+      <ol>
+        <li><strong>模型权重</strong>：参数 × bytes_per_param（FP16 ≈ 2B/param, Q4 ≈ 0.5B/param）</li>
+        <li><strong>KV 缓存</strong>：随上下文线性增长</li>
+        <li><strong>运行时开销</strong>：CUDA 开销、框架缓冲区、临时张量</li>
+      </ol>
+      <p><strong>现实估算</strong>：total = quantized_weights + KV_cache + runtime + batch + safety_margin</p>
+      <blockquote>陷阱：Q4 的 13B 在 8K 上下文下轻松，但在 32K 下崩了。权重没变，上下文变了。留出 10-20% 余量。</blockquote>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>💾 文件格式 & 加载安全</summary>
+    <div class="body">
+      <table>
+        <tr><th>格式</th><th>说明</th><th>推荐场景</th></tr>
+        <tr><td><strong>Safetensors</strong></td><td>安全的张量序列化</td><td>✅ PyTorch/Transformers</td></tr>
+        <tr><td><strong>GGUF</strong></td><td>llama.cpp 生态</td><td>✅ CPU/Apple Silicon/桌面工具</td></tr>
+        <tr><td><strong>ONNX</strong></td><td>标准化部署</td><td>✅ Intel NPU / ARM</td></tr>
+        <tr><td><strong>EXL2/GPTQ/AWQ</strong></td><td>GPU 量化格式</td><td>✅ 大模型压缩到单 GPU</td></tr>
+        <tr><td><strong>.bin (pickle)</strong></td><td>⚠️ 可执行任意代码</td><td>❌ 避免不受信任来源</td></tr>
+      </table>
+      <blockquote>本地 AI 安全规则一：不让陌生人的模型文件成为陌生人的代码执行。</blockquote>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>🏃 运行时选择</summary>
+    <div class="body">
+      <table>
+        <tr><th>场景</th><th>推荐运行时</th><th>格式生态</th></tr>
+        <tr><td>单人本地实验</td><td><strong>Harbor / LM Studio / llama.cpp</strong></td><td>GGUF</td></tr>
+        <tr><td>团队/私有服务</td><td><strong>vLLM / SGLang</strong></td><td>safetensors</td></tr>
+        <tr><td>NVIDIA 最大性能</td><td><strong>TensorRT-LLM</strong></td><td>ONNX / 优化引擎</td></tr>
+        <tr><td>浏览器/移动</td><td><strong>MLC / WebLLM</strong></td><td>特定格式</td></tr>
+      </table>
+      <p>运行时会把你锁定到格式生态。先选运行时，再找正确格式的模型。</p>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>🚀 什么控制速度？</summary>
+    <div class="body">
+      <p>TPS 不受一件事控制：</p>
+      <div class="mini-grid">
+        <div class="mini-card border-blue"><strong>内存带宽</strong>解码通常受带宽限制（反复传输权重）</div>
+        <div class="mini-card border-green"><strong>GPU FLOP</strong>预填充和大批量更依赖计算</div>
+        <div class="mini-card border-red"><strong>CPU 溢出</strong>痛苦的设置：性能可能崩溃</div>
+        <div class="mini-card border-orange"><strong>推测解码</strong>DFlash/DDTree 加速生成</div>
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ===== 模型选择 ===== -->
+<section class="section">
+  <h2 class="section-title">🎯 模型选择</h2>
+
+  <details class="detail-block" open>
+    <summary>📋 模型选择五项检查</summary>
+    <div class="body">
+      <ol>
+        <li><strong>任务适合</strong>：聊天/编码/文档/代理/多模态/边缘/微调</li>
+        <li><strong>内存适合</strong>：权重 + KV 缓存 + 运行时开销 + 余量 ≤ 可用内存的 80-90%</li>
+        <li><strong>接口适合</strong>：tokenizer, 聊天模板, stop tokens, 工具模式</li>
+        <li><strong>运行时适合</strong>：运行时是否良好支持这种架构/量化/上下文</li>
+        <li><strong>许可证适合</strong>：你实际能在计划使用的地方用吗？</li>
+      </ol>
+      <blockquote>实际问题不是"最好的模型是什么"，而是"最小的模型是什么在硬件上赢了实际工作负载"。</blockquote>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>🌐 2026 年关键模型家族</summary>
+    <div class="body">
+      <div class="family-grid">
+        <div class="family-card border-blue"><strong>Qwen 3.5/3.6</strong>从笔记本到多 GPU 服务的完整生态。27B 密集是 2×3090 的强默认。</div>
+        <div class="family-card border-green"><strong>Gemma 4</strong>Google DeepMind，Apache 2.0，边缘到密集/MoE。商业使用首选。</div>
+        <div class="family-card border-orange"><strong>DeepSeek</strong>大型 MoE，多头潜在注意力，FP8 服务。高吞吐自托管。</div>
+        <div class="family-card border-purple"><strong>Mistral</strong>通用/编码/推理/多模态全覆盖，部署支持强。</div>
+        <div class="family-card border-red"><strong>Kimi/Moonshot</strong>长上下文编码，多模态推理，工具使用，代理工作流。</div>
+        <div class="family-card border-blue"><strong>Nemotron 3</strong>NVIDIA 企业代理。不是桌面聊天族。</div>
+      </div>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>📊 按场景推荐</summary>
+    <div class="body">
+      <div class="scenario-grid">
+        <div class="scenario-card border-red bg-red"><strong>简单本地助手</strong>7B-14B 指令模型, Q4/Q5, 8K-32K, Harbor/LM Studio</div>
+        <div class="scenario-card border-orange bg-orange"><strong>本地编码助手</strong>14B-32B 编码模型, 低温, 检索+测试+补丁</div>
+        <div class="scenario-card border-blue bg-blue"><strong>私人文档助手</strong>强指令+嵌入+Reranker+RAG+引用执行</div>
+        <div class="scenario-card border-purple bg-purple"><strong>推理设置</strong>推理调优模型, 预算额外 token, 中低温</div>
+        <div class="scenario-card border-green bg-green"><strong>低资源设置</strong>1B-4B, Q4/Q5, 短提示, 严格输出模式</div>
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ===== 安全与隐私 ===== -->
+<section class="section">
+  <h2 class="section-title">🔒 安全与隐私</h2>
+
+  <details class="detail-block">
+    <summary>🛡️ 本地 ≠ 自动安全</summary>
+    <div class="body">
+      <p>本地并不自动意味着安全。威胁包括：恶意模型文件、pickle 权重加载、prompt 注入、日志泄露、遥测外传。</p>
+      <p><strong>可行基线</strong>：</p>
+      <ul>
+        <li>优先 safetensors 或 GGUF，避免不受信任的 .bin</li>
+        <li>非特权用户 + 容器沙箱 + 可禁用网络</li>
+        <li>凭证排除在提示和 RAG 索引外</li>
+        <li>版本追踪：模型、提示、适配器、运行时、量化</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>🤖 本地 Agent 需要护栏</summary>
+    <div class="body">
+      <div class="step-item"><div class="step-num" style="background:var(--red)">1</div><div class="step-body"><strong>界定范围</strong> — 只给代理实际需要的目录、API、网络、凭证</div></div>
+      <div class="step-item"><div class="step-num" style="background:var(--orange)">2</div><div class="step-body"><strong>约束执行</strong> — 沙箱、容器、最小权限用户、破坏性操作需确认</div></div>
+      <div class="step-item"><div class="step-num" style="background:var(--blue)">3</div><div class="step-body"><strong>输入即恶意</strong> — 检索的文档、网页、工单可能包含 prompt 注入</div></div>
+      <div class="step-item"><div class="step-num" style="background:var(--purple)">4</div><div class="step-body"><strong>审计追踪</strong> — 记录工具调用、模型版本、提示、批准</div></div>
+    </div>
+  </details>
+</section>
+
+<!-- ===== RAG ===== -->
+<section class="section">
+  <h2 class="section-title">📚 RAG 与文档工作</h2>
+
+  <details class="detail-block">
+    <summary>🔍 RAG 击败巨型提示</summary>
+    <div class="body">
+      <p><strong>RAG = 检索增强生成</strong>。从知识库检索相关块，只把那些块给模型。</p>
+      <p><strong>好 RAG 系统</strong>：文档提取 → 解析 → 分块 → 嵌入 → 向量索引 → 检索 → 重排序 → 提示构建 → 生成 → 基础检查 → 评估</p>
+      <blockquote>坏 RAG 不是 LLM 的锅 — 坏在分块、检索、重排序和评估。</blockquote>
+    </div>
+  </details>
+</section>
+
+<!-- ===== 实操清单 ===== -->
+<section class="section">
+  <h2 class="section-title">✅ 本地 LLM 运行手册</h2>
+
+  <details class="detail-block" open>
+    <summary>📋 信任一个本地模型前的最后检查</summary>
+    <div class="body">
+      <div class="step-item"><div class="step-num">1</div><div class="step-body"><strong>选择并适合</strong> — 选模型家族，读许可证，确认硬件，选量化，估算全部内存费用</div></div>
+      <div class="step-item"><div class="step-num">2</div><div class="step-body"><strong>加载和格式</strong> — 优先 safetensors/GGUF，验证 tokenizer 和聊天模板</div></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-body"><strong>评估和操作</strong> — 用代表性提示测试，测 TTFT 和解码速度，跟踪峰值内存</div></div>
+      <div class="step-item"><div class="step-num">4</div><div class="step-body"><strong>版本控制一切</strong> — 模型、量化、运行时、提示、模板、评估集、硬件配置</div></div>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>📉 故障模式速查</summary>
+    <div class="body">
+      <table>
+        <tr><th>症状</th><th>可能性</th><th>检查顺序</th></tr>
+        <tr><td>OOM</td><td><span class="tag tag-red">常见</span></td><td>模型太大？上下文太长？batch 太高？量化不够？</td></tr>
+        <tr><td>胡言乱语</td><td><span class="tag tag-red">常见</span></td><td>聊天模板！BOS/EOS token！推理模式开关！</td></tr>
+        <tr><td>首 token 慢</td><td><span class="tag tag-orange">一般</span></td><td>提示太长？前缀缓存？注意力后端？</td></tr>
+        <tr><td>流式慢</td><td><span class="tag tag-orange">一般</span></td><td>带宽瓶颈？CPU 溢出？推测解码？</td></tr>
+        <tr><td>文档错</td><td><span class="tag tag-orange">一般</span></td><td>检索失败 → 检查分块、top-k、reranker</td></tr>
+        <tr><td>JSON/工具差</td><td><span class="tag tag-blue">偶尔</span></td><td>温度太高？约束解码？更多示例？</td></tr>
+        <tr><td>重复循环</td><td><span class="tag tag-blue">偶尔</span></td><td>降低温度，加重复惩罚，检查 stop tokens</td></tr>
+      </table>
+      <blockquote>从无聊的检查开始。它们比模型交换解决更多问题。</blockquote>
+    </div>
+  </details>
+</section>
+
+<!-- ===== 进阶路径 ===== -->
+<section class="section">
+  <h2 class="section-title">🧗 进阶路径</h2>
+
+  <details class="detail-block">
+    <summary>📈 如何扩大堆栈</summary>
+    <div class="body">
+      <div class="step-item"><div class="step-num" style="background:var(--green)">1</div><div class="step-body"><strong>初学者</strong> — Harbor/LM Studio + 4B-9B 指令模型 + Q4 + 内置 UI。学提示，比模型。</div></div>
+      <div class="step-item"><div class="step-num" style="background:var(--blue)">2</div><div class="step-body"><strong>中级</strong> — llama.cpp + GGUF + OpenAI 兼容本地服务器 + 简单 RAG。</div></div>
+      <div class="step-item"><div class="step-num" style="background:var(--orange)">3</div><div class="step-body"><strong>高级</strong> — vLLM/SGLang + 多 GPU + 监控 + 评估套件 + RAG。</div></div>
+      <div class="step-item"><div class="step-num" style="background:var(--red)">4</div><div class="step-body"><strong>专家</strong> — TensorRT-LLM + 自定义内核 + 量化实验 + 推测解码 + 微调。</div></div>
+    </div>
+  </details>
+
+  <details class="detail-block">
+    <summary>⚖️ 开放权重 ≠ 开源</summary>
+    <div class="body">
+      <p>2026 年"开放模型"一词常被草率使用：</p>
+      <ul>
+        <li><strong>开放权重</strong>：可以下载权重。不自动意味着可商用/可修改</li>
+        <li><strong>源可用</strong>：代码或权重可见。不一定是开源许可证</li>
+        <li><strong>开源 AI</strong> (OSI 定义)：架构+参数+推理代码+数据信息</li>
+      </ul>
+      <blockquote>规则：商用任何模型前，阅读模型卡和许可证。</blockquote>
+    </div>
+  </details>
+</section>
+
+<!-- ===== 结语 ===== -->
+<div class="final-quote">
+  <p>本地 LLM 主要是内存数学 + 格式化 + 评估</p>
+  <div class="sub">你不需要神话来很好地运行本地模型。你需要知道内存中适合什么、模型期望哪个模板、运行时的行为方式。</div>
+</div>
+
+</div>
+</body>
+</html>
